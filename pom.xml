@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.jesperdj</groupId>
-    <artifactId>scala-maven-example</artifactId>
+    <groupId>person.systay</groupId>
+    <artifactId>plan-explorer</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 
     <properties>
@@ -29,7 +29,6 @@
             </plugins>
         </pluginManagement>
     </build>
-
 
     <dependencies>
         <!-- scala -->
@@ -69,7 +68,16 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
+        <dependency>
+            <groupId>org.neo4j</groupId>
+            <artifactId>neo4j-cypher</artifactId>
+            <version>3.3.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>3.5.1</version>
+        </dependency>
     </dependencies>
 
 
