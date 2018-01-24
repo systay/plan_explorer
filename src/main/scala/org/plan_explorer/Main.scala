@@ -1,6 +1,7 @@
 package org.plan_explorer
 
 import org.jline.reader._
+import org.jline.terminal.{Terminal, TerminalBuilder}
 import org.neo4j.graphdb.GraphDatabaseService
 import org.neo4j.kernel.internal.Version
 
@@ -8,7 +9,13 @@ object Main {
 
   private var db: GraphDatabaseService = _
   private var query: String = _
-  private val reader = LineReaderBuilder.builder.build()
+  private var terminal: Terminal = TerminalBuilder.terminal()
+
+  private def getReader(): LineReader = {
+    terminal.close()
+    terminal = TerminalBuilder.builder().build()
+    LineReaderBuilder.builder().terminal(terminal).build()
+  }
 
   def main(args: Array[String]): Unit = {
     registerCtrlCHook()
@@ -17,13 +24,12 @@ object Main {
       s"""Welcome to plan explorer!
          |Using Neo4j ${Version.getNeo4jVersion}
          |*-*-*-*-*-*-*-*-*-*-*-*-*
-         |
-         |Please enter query. CTRL-D to finish input""".stripMargin)
+         |""".stripMargin)
 
-    var current: Action = mainMenu()
+    var current: Action = enterQuery()
 
     while (current != Quit) {
-      current = current.chooseOptionFromReader(reader)
+      current = current.chooseOptionFromReader(getReader())
     }
   }
 
@@ -32,22 +38,47 @@ object Main {
     ("Load schema and statistics from database", mainMenu),
     ("Edit schema and statistics", mainMenu),
     ("Explore plan space", mainMenu),
-    ("Change query", mainMenu),
+    ("Change query", enterQuery),
     ("Quit", () => Quit)
   )
 
   private def enterQuery(): Action = {
-    println("Please enter query. CTRL-D to finish input")
-
+    println("Please enter query. Single line with . to finish input")
+    query = getMultiLineInput()
     mainMenu()
+  }
+
+  private def close(): Unit = {
+    if(db != null)
+      db.shutdown()
+  }
+
+  private def getMultiLineInput(): String = {
+    val builder = new StringBuilder
+    val reader = getReader()
+    while (true) {
+      try {
+        reader.readLine("") match {
+          case null => return builder.toString()
+          case "." => return builder.toString()
+          case line => builder.append(line).append(System.lineSeparator())
+        }
+      } catch {
+        case e: UserInterruptException =>
+          close()
+          throw e
+        case e: EndOfFileException =>
+          close()
+          throw e
+      }
+    }
+
+    "This never happens"
   }
 
   private def registerCtrlCHook(): Unit = {
     Runtime.getRuntime.addShutdownHook(new Thread() {
-      override def run(): Unit =
-        if (db != null)
-          db.shutdown()
-
+      override def run(): Unit = close()
     })
   }
 }
