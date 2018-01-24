@@ -1,14 +1,14 @@
 package org.plan_explorer
 
-import java.util
-
 import org.jline.reader._
 import org.neo4j.graphdb.GraphDatabaseService
 import org.neo4j.kernel.internal.Version
 
 object Main {
 
-  var db: GraphDatabaseService = _
+  private var db: GraphDatabaseService = _
+  private var query: String = _
+  private val reader = LineReaderBuilder.builder.build()
 
   def main(args: Array[String]): Unit = {
     registerCtrlCHook()
@@ -19,31 +19,27 @@ object Main {
          |*-*-*-*-*-*-*-*-*-*-*-*-*
          |
          |Please enter query. CTRL-D to finish input""".stripMargin)
-    val reader = LineReaderBuilder.builder.parser(new Apa).build()
-    val query = getMultiLineInput(reader)
 
-    println(query)
+    var current: Action = mainMenu()
+
+    while (current != Quit) {
+      current = current.chooseOptionFromReader(reader)
+    }
   }
 
-  private def getMultiLineInput(reader: LineReader): String = {
-    val builder = new StringBuilder
-    while (true) {
-      try {
-        val line = reader.readLine("")
-        if (line == null)
-          return builder.toString()
-        builder.append(line).append(System.lineSeparator())
-      } catch {
-        case _: UserInterruptException =>
-          println("UserInterruptException")
-          println("UserInterruptException")
-        case _: EndOfFileException =>
-          println("ctrl-d")
-          return builder.toString()
-      }
-    }
+  private def mainMenu(): Action = Menu(
+    ("View current schema and statistics", mainMenu),
+    ("Load schema and statistics from database", mainMenu),
+    ("Edit schema and statistics", mainMenu),
+    ("Explore plan space", mainMenu),
+    ("Change query", mainMenu),
+    ("Quit", () => Quit)
+  )
 
-    "This never happens"
+  private def enterQuery(): Action = {
+    println("Please enter query. CTRL-D to finish input")
+
+    mainMenu()
   }
 
   private def registerCtrlCHook(): Unit = {
@@ -53,13 +49,5 @@ object Main {
           db.shutdown()
 
     })
-  }
-}
-
-class Apa extends Parser {
-  override def parse(line: String, cursor: Int, context: Parser.ParseContext): ParsedLine = {
-    val words: util.List[String] = new util.LinkedList[String]
-
-    new org.jline.reader.impl.DefaultParser.ArgumentList(line, words, 0, 0, 0)
   }
 }
