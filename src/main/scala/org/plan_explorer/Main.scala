@@ -2,6 +2,7 @@ package org.plan_explorer
 
 import org.jline.reader._
 import org.jline.terminal.{Terminal, TerminalBuilder}
+import org.neo4j.cypher.internal.frontend.v3_3.phases.BaseState
 import org.neo4j.graphdb.GraphDatabaseService
 import org.neo4j.kernel.internal.Version
 
@@ -9,6 +10,7 @@ object Main {
 
   private var db: GraphDatabaseService = _
   private var query: String = _
+  private var baseState: BaseState = _
   private var terminal: Terminal = TerminalBuilder.terminal()
 
   private def getReader(): LineReader = {
@@ -44,8 +46,26 @@ object Main {
 
   private def enterQuery(): Action = {
     println("Please enter query. Single line with . to finish input")
-    query = getMultiLineInput()
-    mainMenu()
+    try {
+      val input = getMultiLineInput()
+
+      print("parsing, ast-rewriting and semantic analysis")
+      baseState = ParseAndSemanticAnalysis.parsing_rewriting_and_semantics(input)
+      println("...")
+
+      print("initial planning to find out interesting schema")
+      // TODO
+      //      baseState = ParseAndSemanticAnalysis.parsing_rewriting_and_semantics(input)
+      println("...")
+
+
+      query = input
+      mainMenu()
+    } catch {
+      case e: RuntimeException =>
+        e.printStackTrace()
+        enterQuery()
+    }
   }
 
   private def close(): Unit = {
