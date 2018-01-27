@@ -9,8 +9,18 @@ import org.neo4j.kernel.internal.Version
 object Main {
 
 
-  case class IndexUse(label: String, props: Seq[String], unique: Boolean)
-
+  private def mainMenu(): Action = {
+    println()
+    Menu(
+      ("View current schema", viewIndexes),
+      //    ("Load schema and statistics from database", mainMenu),
+      //    ("Edit schema and statistics", mainMenu),
+      ("Edit indexes", indexMgmt),
+      //    ("Explore plan space", mainMenu),
+      ("Change query", enterQuery),
+      ("Quit", () => Quit)
+    )
+  }
   private var db: GraphDatabaseService = _
   private var query: String = _
   private var baseState: BaseState = _
@@ -40,15 +50,16 @@ object Main {
     }
   }
 
-  private def mainMenu(): Action = Menu(
-    ("View current schema and statistics", mainMenu),
-    ("Load schema and statistics from database", mainMenu),
-    ("Edit schema and statistics", mainMenu),
-    ("Edit indexes", indexMgmt),
-    ("Explore plan space", mainMenu),
-    ("Change query", enterQuery),
-    ("Quit", () => Quit)
-  )
+  private def viewIndexes(): Action = {
+    if (selectedIndexes.isEmpty)
+      println("No indexes defined")
+    else {
+      println("Current indexes:")
+      selectedIndexes.foreach(i => println(s"  $i"))
+    }
+
+    mainMenu()
+  }
 
   private def indexMgmt(): Action = {
     selectedIndexes = IndexManagement.pickIndexes(selectedIndexes, possibleIndexes)
@@ -58,17 +69,19 @@ object Main {
   private def enterQuery(): Action = {
     println("Please enter query. Single line with . to finish input")
     try {
-      val input = if (true)
-        "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 AND exists(a.prop3) RETURN *"
-      else
-        multiLineInput()
+      val input =
+        if (true)
+          "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 AND exists(a.prop3) RETURN *"
+        else
+          multiLineInput()
 
       print("parsing, ast-rewriting and semantic analysis")
       val maybeBaseState = ParseAndSemanticAnalysis.parsing_rewriting_and_semantics(input)
       println("...")
 
       print("initial planning to find out interesting schema")
-      val result: Set[IndexPossibility] = Planning.plan(input, maybeBaseState)
+      val result: Set[IndexPossibility] = PreparatoryPlanning.plan(input, maybeBaseState)
+      println("...")
 
       // Passed all steps = let's switch to the new values
       query = input
@@ -79,6 +92,13 @@ object Main {
       case e: RuntimeException =>
         e.printStackTrace()
         enterQuery()
+    }
+  }
+
+  case class IndexUse(label: String, props: Seq[String], unique: Boolean) {
+    override def toString: String = {
+      val uniqueS = if (unique) "UNIQUE " else ""
+      s"${uniqueS}INDEX ON :$label(${props.mkString(", ")})"
     }
   }
 

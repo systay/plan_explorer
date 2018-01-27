@@ -14,7 +14,7 @@ import org.neo4j.cypher.internal.frontend.v3_3.phases.CompilationPhaseTracer.NO_
 import org.neo4j.cypher.internal.frontend.v3_3.phases.{BaseState, devNullLogger}
 import org.neo4j.kernel.monitoring.Monitors
 
-object Planning {
+object PreparatoryPlanning {
   def plan(query: String, baseState: BaseState): Set[IndexPossibility] = {
 
     val metricsFactory = new MyMetricsFactory

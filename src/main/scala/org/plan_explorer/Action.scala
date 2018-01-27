@@ -20,14 +20,19 @@ case class NumberedMenu(options: (String, () => Action)*) extends Action {
     println(createMenu())
     while (true) {
       val input = reader.readLine("> ")
-      val asInt = input.toInt
+      try {
+        val asInt = input.toInt
 
-      menu.get(asInt) match {
-        case Some(act) =>
-          return act()
+        menu.get(asInt) match {
+          case Some(act) =>
+            return act()
 
-        case None =>
-          println("No such option exists")
+          case None =>
+            println("No such option exists")
+        }
+      } catch {
+        case e: NumberFormatException =>
+          println("Need a number")
       }
     }
 
