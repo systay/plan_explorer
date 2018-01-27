@@ -8,12 +8,17 @@ import org.neo4j.kernel.internal.Version
 
 object Main {
 
+
+  case class IndexUse(label: String, props: Seq[String], unique: Boolean)
+
   private var db: GraphDatabaseService = _
   private var query: String = _
   private var baseState: BaseState = _
   private var terminal: Terminal = TerminalBuilder.terminal()
+  private var possibleIndexes: Set[IndexPossibility] = _
+  private var selectedIndexes: Set[IndexUse] = Set.empty
 
-  private def getReader(): LineReader = {
+  def getReader(): LineReader = {
     terminal.close()
     terminal = TerminalBuilder.builder().build()
     LineReaderBuilder.builder().terminal(terminal).build()
@@ -39,26 +44,34 @@ object Main {
     ("View current schema and statistics", mainMenu),
     ("Load schema and statistics from database", mainMenu),
     ("Edit schema and statistics", mainMenu),
+    ("Edit indexes", indexMgmt),
     ("Explore plan space", mainMenu),
     ("Change query", enterQuery),
     ("Quit", () => Quit)
   )
 
+  private def indexMgmt(): Action = {
+    selectedIndexes = IndexManagement.pickIndexes(selectedIndexes, possibleIndexes)
+    mainMenu()
+  }
+
   private def enterQuery(): Action = {
     println("Please enter query. Single line with . to finish input")
     try {
-      //      val input = "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 AND exists(a.prop3) RETURN *"
-      val input = getMultiLineInput()
+      val input = "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 AND exists(a.prop3) RETURN *"
+      //      val input = getMultiLineInput()
 
       print("parsing, ast-rewriting and semantic analysis")
-      baseState = ParseAndSemanticAnalysis.parsing_rewriting_and_semantics(input)
+      val maybeBaseState = ParseAndSemanticAnalysis.parsing_rewriting_and_semantics(input)
       println("...")
 
       print("initial planning to find out interesting schema")
-      Planning.plan(input, baseState)
-      println("...")
+      val result: Set[IndexPossibility] = Planning.plan(input, maybeBaseState)
 
+      // Passed all steps = let's switch to the new values
       query = input
+      baseState = maybeBaseState
+      possibleIndexes = result
       mainMenu()
     } catch {
       case e: RuntimeException =>

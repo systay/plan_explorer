@@ -6,7 +6,6 @@ import org.neo4j.cypher.internal.compatibility.v3_3.WrappedMonitors
 import org.neo4j.cypher.internal.compatibility.v3_3.runtime.CommunityRuntimeContextCreator
 import org.neo4j.cypher.internal.compatibility.v3_3.runtime.helpers.simpleExpressionEvaluator
 import org.neo4j.cypher.internal.compiler.v3_3.defaultUpdateStrategy
-import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
 import org.neo4j.cypher.internal.compiler.v3_3.planner.logical.Metrics.{CardinalityModel, CostModel, QueryGraphCardinalityModel}
 import org.neo4j.cypher.internal.compiler.v3_3.planner.logical.idp._
 import org.neo4j.cypher.internal.compiler.v3_3.planner.logical.{ExpressionEvaluator, MetricsFactory, SimpleMetricsFactory}
@@ -16,7 +15,7 @@ import org.neo4j.cypher.internal.frontend.v3_3.phases.{BaseState, devNullLogger}
 import org.neo4j.kernel.monitoring.Monitors
 
 object Planning {
-  def plan(query: String, baseState: BaseState): LogicalPlanState = {
+  def plan(query: String, baseState: BaseState): Set[IndexPossibility] = {
 
     val metricsFactory = new MyMetricsFactory
     val config = ParseAndSemanticAnalysis.config
@@ -47,7 +46,7 @@ object Planning {
 
     val compiler = ParseAndSemanticAnalysis.createCompiler
     val result = compiler.normalizeQuery(baseState, context)
-    val finalResult = compiler.planPreparedQuery(result, context)
+    compiler.planPreparedQuery(result, context)
 
     println("...")
     println(s"labels: ${planContext.labels.keySet.mkString(", ")}")
@@ -55,7 +54,7 @@ object Planning {
     println(s"rel-types: ${planContext.types.keySet.mkString(", ")}")
     println(s"interesting indexes:\n  ${metricsFactory._costModel.interestingIndexes.mkString("\n  ")}")
 
-    finalResult
+    metricsFactory._costModel.interestingIndexes.toSet
   }
 }
 

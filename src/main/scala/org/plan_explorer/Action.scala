@@ -13,6 +13,35 @@ case object Quit extends Action {
   }
 }
 
+case class NumberedMenu(options: (String, () => Action)*) extends Action {
+  val menu: Map[Int, () => Action] = options.zipWithIndex.map(x => (x._2, x._1._2)).toMap
+
+  override def chooseOptionFromReader(reader: LineReader): Action = {
+    println(createMenu())
+    while (true) {
+      val input = reader.readLine("> ")
+      val asInt = input.toInt
+
+      menu.get(asInt) match {
+        case Some(act) =>
+          return act()
+
+        case None =>
+          println("No such option exists")
+      }
+    }
+
+    throw new RuntimeException("this should never happen")
+  }
+
+  private def createMenu(): String = {
+    options.zipWithIndex.map {
+      case ((label, _), idx) =>
+        s"$idx - $label"
+    }.mkString(System.lineSeparator())
+  }
+}
+
 case class Menu(options: (String, () => Action)*) extends Action {
   val encodedOptions: Map[String, Char] = options.foldLeft(Map.empty[String, Char]) {
     case (used, (line, _)) =>

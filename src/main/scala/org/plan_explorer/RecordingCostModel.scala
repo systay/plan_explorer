@@ -12,29 +12,28 @@ import scala.collection.mutable
 class RecordingCostModel(inner: CostModel) extends CostModel {
 
 
-  val interestingIndexes = new mutable.HashSet[IndexUse]()
+  val interestingIndexes = new mutable.HashSet[IndexPossibility]()
 
   override def apply(plan: LogicalPlan, queryGraphInput: Metrics.QueryGraphSolverInput): Cost = {
 
     plan.findByAllClass[NodeLogicalLeafPlan].foreach {
       case NodeUniqueIndexSeek(_, LabelToken(label, _), props, _, _) =>
-        interestingIndexes.add(IndexUse(label, props.map(_.name)))
+        interestingIndexes.add(IndexPossibility(label, props.map(_.name)))
       case NodeIndexSeek(_, LabelToken(label, _), props, _, _) =>
-        interestingIndexes.add(IndexUse(label, props.map(_.name)))
+        interestingIndexes.add(IndexPossibility(label, props.map(_.name)))
       case NodeIndexScan(_, LabelToken(label, _), props, _) =>
-        interestingIndexes.add(IndexUse(label, Seq(props.name)))
+        interestingIndexes.add(IndexPossibility(label, Seq(props.name)))
       case NodeIndexContainsScan(_, LabelToken(label, _), props, _, _) =>
-        interestingIndexes.add(IndexUse(label, Seq(props.name)))
+        interestingIndexes.add(IndexPossibility(label, Seq(props.name)))
       case NodeIndexEndsWithScan(_, LabelToken(label, _), props, _, _) =>
-        interestingIndexes.add(IndexUse(label, Seq(props.name)))
+        interestingIndexes.add(IndexPossibility(label, Seq(props.name)))
       case _ =>
     }
 
     inner.apply(plan, queryGraphInput)
   }
+}
 
-  case class IndexUse(label: String, props: Seq[String]) {
-    override def toString: String = s"(:$label {${props.mkString(",")}})"
-  }
-
+case class IndexPossibility(label: String, props: Seq[String]) {
+  override def toString: String = s"(:$label {${props.mkString(",")}})"
 }
