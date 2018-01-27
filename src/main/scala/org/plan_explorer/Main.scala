@@ -47,6 +47,7 @@ object Main {
   private def enterQuery(): Action = {
     println("Please enter query. Single line with . to finish input")
     try {
+      //      val input = "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 AND exists(a.prop3) RETURN *"
       val input = getMultiLineInput()
 
       print("parsing, ast-rewriting and semantic analysis")
@@ -54,10 +55,8 @@ object Main {
       println("...")
 
       print("initial planning to find out interesting schema")
-      // TODO
-      //      baseState = ParseAndSemanticAnalysis.parsing_rewriting_and_semantics(input)
+      Planning.plan(input, baseState)
       println("...")
-
 
       query = input
       mainMenu()
