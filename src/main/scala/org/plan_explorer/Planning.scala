@@ -48,12 +48,6 @@ object Planning {
     val result = compiler.normalizeQuery(baseState, context)
     compiler.planPreparedQuery(result, context)
 
-    println("...")
-    println(s"labels: ${planContext.labels.keySet.mkString(", ")}")
-    println(s"propkeys: ${planContext.propKeys.keySet.mkString(", ")}")
-    println(s"rel-types: ${planContext.types.keySet.mkString(", ")}")
-    println(s"interesting indexes:\n  ${metricsFactory._costModel.interestingIndexes.mkString("\n  ")}")
-
     metricsFactory._costModel.interestingIndexes.toSet
   }
 }

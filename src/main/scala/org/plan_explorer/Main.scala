@@ -58,8 +58,10 @@ object Main {
   private def enterQuery(): Action = {
     println("Please enter query. Single line with . to finish input")
     try {
-      val input = "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 AND exists(a.prop3) RETURN *"
-      //      val input = getMultiLineInput()
+      val input = if (true)
+        "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 AND exists(a.prop3) RETURN *"
+      else
+        multiLineInput()
 
       print("parsing, ast-rewriting and semantic analysis")
       val maybeBaseState = ParseAndSemanticAnalysis.parsing_rewriting_and_semantics(input)
@@ -85,7 +87,7 @@ object Main {
       db.shutdown()
   }
 
-  private def getMultiLineInput(): String = {
+  private def multiLineInput(): String = {
     val builder = new StringBuilder
     val reader = getReader()
     while (true) {
