@@ -31,7 +31,7 @@ case class NumberedMenu(options: (String, () => Action)*) extends Action {
             println("No such option exists")
         }
       } catch {
-        case e: NumberFormatException =>
+        case _: NumberFormatException =>
           println("Need a number")
       }
     }

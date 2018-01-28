@@ -15,7 +15,7 @@ import org.neo4j.cypher.internal.frontend.v3_3.phases.{BaseState, devNullLogger}
 import org.neo4j.kernel.monitoring.Monitors
 
 object PreparatoryPlanning {
-  def plan(query: String, baseState: BaseState): Set[IndexPossibility] = {
+  def plan(query: String, baseState: BaseState): (Set[IndexPossibility], Tokens) = {
 
     val metricsFactory = new MyMetricsFactory
     val config = ParseAndSemanticAnalysis.config
@@ -48,7 +48,9 @@ object PreparatoryPlanning {
     val result = compiler.normalizeQuery(baseState, context)
     compiler.planPreparedQuery(result, context)
 
-    metricsFactory._costModel.interestingIndexes.toSet
+    val indexes = metricsFactory._costModel.interestingIndexes.toSet
+    val tokens = Tokens(planContext.labels.toMap, planContext.types.toMap, planContext.propKeys.toMap)
+    (indexes, tokens)
   }
 }
 

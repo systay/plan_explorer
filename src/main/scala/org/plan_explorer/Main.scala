@@ -3,39 +3,20 @@ package org.plan_explorer
 import org.jline.reader._
 import org.jline.terminal.{Terminal, TerminalBuilder}
 import org.neo4j.cypher.internal.frontend.v3_3.phases.BaseState
-import org.neo4j.graphdb.GraphDatabaseService
 import org.neo4j.kernel.internal.Version
 
 object Main {
 
+  private var knownTokens: Tokens = _
 
-  private def mainMenu(): Action = {
-    println()
-    Menu(
-      ("View current schema", viewIndexes),
-      //    ("Load schema and statistics from database", mainMenu),
-      //    ("Edit schema and statistics", mainMenu),
-      ("Edit indexes", indexMgmt),
-      //    ("Explore plan space", mainMenu),
-      ("Change query", enterQuery),
-      ("Quit", () => Quit)
-    )
-  }
-  private var db: GraphDatabaseService = _
   private var query: String = _
   private var baseState: BaseState = _
   private var terminal: Terminal = TerminalBuilder.terminal()
   private var possibleIndexes: Set[IndexPossibility] = _
   private var selectedIndexes: Set[IndexUse] = Set.empty
-
-  def getReader(): LineReader = {
-    terminal.close()
-    terminal = TerminalBuilder.builder().build()
-    LineReaderBuilder.builder().terminal(terminal).build()
-  }
+  private var statistics: RecordedStatistics = _
 
   def main(args: Array[String]): Unit = {
-    registerCtrlCHook()
 
     println(
       s"""Welcome to plan explorer!
@@ -50,6 +31,26 @@ object Main {
     }
   }
 
+  def getReader(): LineReader = {
+    terminal.close()
+    terminal = TerminalBuilder.builder().build()
+    LineReaderBuilder.builder().terminal(terminal).build()
+  }
+
+  private def mainMenu(): Action = {
+    println()
+    Menu(
+      ("View current schema", viewIndexes),
+      ("Load schema and statistics from database", loadFromDatabase),
+      //    ("Edit schema and statistics", mainMenu),
+      ("Edit indexes", indexMgmt),
+      //      ("Explore plan space", mainMenu),
+      ("Change query", enterQuery),
+      ("Reset state", reset),
+      ("Quit", () => Quit)
+    )
+  }
+
   private def viewIndexes(): Action = {
     if (selectedIndexes.isEmpty)
       println("No indexes defined")
@@ -58,6 +59,26 @@ object Main {
       selectedIndexes.foreach(i => println(s"  $i"))
     }
 
+    mainMenu()
+  }
+
+  private def reset(): Action = {
+    println("Reset state")
+    selectedIndexes = Set.empty
+    enterQuery()
+  }
+
+  private def loadFromDatabase(): Action = {
+    val path = getReader().readLine("Path to database: ")
+
+    try {
+      val dbState = LoadFromDatabase.loadFromDatabase(path, query, knownTokens)
+      this.selectedIndexes = dbState.indexes
+      this.statistics = dbState.statistics
+    } catch {
+      case e: Exception =>
+        e.printStackTrace()
+    }
     mainMenu()
   }
 
@@ -80,13 +101,14 @@ object Main {
       println("...")
 
       print("initial planning to find out interesting schema")
-      val result: Set[IndexPossibility] = PreparatoryPlanning.plan(input, maybeBaseState)
+      val (indexes, tokens) = PreparatoryPlanning.plan(input, maybeBaseState)
       println("...")
 
       // Passed all steps = let's switch to the new values
       query = input
       baseState = maybeBaseState
-      possibleIndexes = result
+      possibleIndexes = indexes
+      knownTokens = tokens
       mainMenu()
     } catch {
       case e: RuntimeException =>
@@ -102,37 +124,17 @@ object Main {
     }
   }
 
-  private def close(): Unit = {
-    if(db != null)
-      db.shutdown()
-  }
-
   private def multiLineInput(): String = {
     val builder = new StringBuilder
     val reader = getReader()
     while (true) {
-      try {
-        reader.readLine("") match {
-          case null => return builder.toString()
-          case "." => return builder.toString()
-          case line => builder.append(line).append(System.lineSeparator())
-        }
-      } catch {
-        case e: UserInterruptException =>
-          close()
-          throw e
-        case e: EndOfFileException =>
-          close()
-          throw e
+      reader.readLine("") match {
+        case null => return builder.toString()
+        case "." => return builder.toString()
+        case line => builder.append(line).append(System.lineSeparator())
       }
     }
 
     "This never happens"
-  }
-
-  private def registerCtrlCHook(): Unit = {
-    Runtime.getRuntime.addShutdownHook(new Thread() {
-      override def run(): Unit = close()
-    })
   }
 }
