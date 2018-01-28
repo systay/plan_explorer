@@ -4,9 +4,11 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 import org.neo4j.graphdb.factory.GraphDatabaseFactory
-import org.neo4j.graphdb.{DynamicLabel, GraphDatabaseService}
+import org.neo4j.graphdb.{DynamicLabel, DynamicRelationshipType, GraphDatabaseService, Node}
 import org.plan_explorer.Main.IndexUse
 import org.scalatest.{FunSuite, Matchers}
+
+import scala.util.Random
 
 class LoadFromDatabaseTest extends FunSuite with Matchers {
   test("create database with indexes and load schema & stats from it") {
@@ -15,9 +17,11 @@ class LoadFromDatabaseTest extends FunSuite with Matchers {
     file.mkdir()
 
     createDbWithIndexes(file, "A" -> "prop1", "A" -> "prop2", "B" -> "prop1", "B" -> "prop2")
-    val oldTokens = Tokens(Map("A" -> 0, "B" -> 1), Map.empty, Map("prop1" -> 2, "prop2" -> 3))
 
-    val result = LoadFromDatabase.loadFromDatabase(file.getAbsolutePath, "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 RETURN *", oldTokens)
+    val query = "MATCH (a:A)-[:T]->(b:B) WHERE a.prop1 = 42 AND a.prop2 > 43 RETURN *"
+    val baseState = ParseAndSemanticAnalysis.parsing_rewriting_and_semantics(query)
+    val (_, oldTokens, stats) = PreparatoryPlanning.plan(query, baseState)
+    val result = LoadFromDatabase.loadFromDatabase(file.getAbsolutePath, query, oldTokens, stats)
 
     result.indexes should equal(Set(
       IndexUse("A", Seq("prop1"), unique = false),
@@ -25,6 +29,10 @@ class LoadFromDatabaseTest extends FunSuite with Matchers {
       IndexUse("B", Seq("prop1"), unique = false),
       IndexUse("B", Seq("prop2"), unique = false)
     ))
+
+    println(result.statistics)
+
+    result.statistics.allNodes.amount should equal(1001)
   }
 
   private def createDbWithIndexes(file: File, indexesOn: (String, String)*) = {
@@ -33,9 +41,32 @@ class LoadFromDatabaseTest extends FunSuite with Matchers {
       newGraphDatabase()
 
     inTx(db) {
-      val node = db.createNode()
-      node.setProperty("prop3", 42)
+      println("creating data")
+      val r = new Random()
+      val aLabel = DynamicLabel.label("A")
+      val bLabel = DynamicLabel.label("B")
+      val nodes: Array[Node] = ((0 to 1000) map { _ =>
+        val node = db.createNode()
+        if (r.nextBoolean())
+          node.addLabel(aLabel)
+
+        if (r.nextBoolean())
+          node.addLabel(bLabel)
+
+        node
+      }).toArray
+
+      val t = DynamicRelationshipType.withName("T")
+
+      (0 to 1000) foreach { _ =>
+
+        val from = nodes(r.nextInt(1000))
+        val to = nodes(r.nextInt(1000))
+        from.createRelationshipTo(to, t)
+
+      }
     }
+    println("done")
 
     inTx(db) {
       indexesOn foreach {

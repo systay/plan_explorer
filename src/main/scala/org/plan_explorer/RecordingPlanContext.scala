@@ -3,7 +3,8 @@ package org.plan_explorer
 import org.neo4j.cypher.internal.compiler.v3_3.IndexDescriptor
 import org.neo4j.cypher.internal.compiler.v3_3.spi.{GraphStatistics, PlanContext}
 import org.neo4j.cypher.internal.frontend.v3_3.phases.{InternalNotificationLogger, devNullLogger}
-import org.neo4j.cypher.internal.spi.v3_3.HardcodedGraphStatistics
+import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
+import org.neo4j.cypher.internal.ir.v3_3.{Cardinality, Selectivity}
 import org.neo4j.cypher.internal.v3_3.logical.plans.{ProcedureSignature, QualifiedName, UserFunctionSignature}
 
 import scala.collection.mutable
@@ -47,7 +48,7 @@ class RecordingPlanContext extends PlanContext {
 
   override def txIdProvider: () => Long = () => 0L
 
-  override def statistics: GraphStatistics = HardcodedGraphStatistics
+  override val statistics: RecordingStatistics = new RecordingStatistics
 
   override def notificationLogger(): InternalNotificationLogger = devNullLogger
 
@@ -86,4 +87,31 @@ class RecordingPlanContext extends PlanContext {
     tokenCounter += 1
     id
   }
+}
+
+class RecordingStatistics extends GraphStatistics {
+
+  val interestingLabels = new collection.mutable.HashSet[LabelId]()
+  val interestingEdges = new collection.mutable.HashSet[(Option[LabelId], Option[RelTypeId], Option[LabelId])]()
+  val interestingIndexes = new collection.mutable.HashSet[IndexDescriptor]()
+
+  override def nodesWithLabelCardinality(labelId: Option[LabelId]): Cardinality = {
+    labelId.foreach(interestingLabels.add)
+    Cardinality(1)
+  }
+
+  override def nodesAllCardinality(): Cardinality = Cardinality(1)
+
+  override def cardinalityByLabelsAndRelationshipType(fromLabel: Option[LabelId], relTypeId: Option[RelTypeId], toLabel: Option[LabelId]): Cardinality = {
+    interestingEdges.add((fromLabel, relTypeId, toLabel))
+    Cardinality(1)
+  }
+
+  override def indexPropertyExistsSelectivity(index: IndexDescriptor): Option[Selectivity] = indexSelectivity(index)
+
+  override def indexSelectivity(index: IndexDescriptor): Option[Selectivity] = {
+    interestingIndexes.add(index)
+    Some(Selectivity(1))
+  }
+
 }

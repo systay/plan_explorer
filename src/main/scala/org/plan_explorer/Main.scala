@@ -14,7 +14,8 @@ object Main {
   private var terminal: Terminal = TerminalBuilder.terminal()
   private var possibleIndexes: Set[IndexPossibility] = _
   private var selectedIndexes: Set[IndexUse] = Set.empty
-  private var statistics: RecordedStatistics = _
+  private var storedStats: StoredStatistics = _
+  private var recordedStats: RecordingStatistics = _
 
   def main(args: Array[String]): Unit = {
     println(
@@ -39,7 +40,7 @@ object Main {
   private def mainMenu(): Action = {
     println()
     Menu(
-      ("View current schema", viewIndexes),
+      ("View current schema & stats", viewState),
       ("Load schema and statistics from database", loadFromDatabase),
       //    ("Edit schema and statistics", mainMenu),
       ("Edit indexes", indexMgmt),
@@ -50,7 +51,7 @@ object Main {
     )
   }
 
-  private def viewIndexes(): Action = {
+  private def viewState(): Action = {
     if (selectedIndexes.isEmpty)
       println("No indexes defined")
     else {
@@ -58,12 +59,20 @@ object Main {
       selectedIndexes.foreach(i => println(s"  $i"))
     }
 
+    if (storedStats == null)
+      println("No stats set")
+    else
+      println(recordedStats)
+
     mainMenu()
   }
 
   private def reset(): Action = {
     println("Reset state")
     selectedIndexes = Set.empty
+    storedStats = null
+    possibleIndexes = null
+    recordedStats = null
     enterQuery()
   }
 
@@ -71,9 +80,9 @@ object Main {
     val path = getReader().readLine("Path to database: ")
 
     try {
-      val dbState = LoadFromDatabase.loadFromDatabase(path, query, knownTokens)
+      val dbState = LoadFromDatabase.loadFromDatabase(path, query, knownTokens, recordedStats)
       this.selectedIndexes = dbState.indexes
-      this.statistics = dbState.statistics
+      this.storedStats = dbState.statistics
     } catch {
       case e: Exception =>
         e.printStackTrace()
@@ -91,7 +100,7 @@ object Main {
     try {
       val input =
         if (true)
-          "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 RETURN *"
+          "MATCH (a:A)-[:T]->(b:B) WHERE a.prop1 = 42 RETURN *"
         else
           multiLineInput()
 
@@ -100,14 +109,15 @@ object Main {
       println("...")
 
       print("initial planning to find out interesting schema")
-      val (indexes, tokens) = PreparatoryPlanning.plan(input, maybeBaseState)
+      val (indexes, tokens, recordedStats) = PreparatoryPlanning.plan(input, maybeBaseState)
       println("...")
 
       // Passed all steps = let's switch to the new values
-      query = input
-      baseState = maybeBaseState
-      possibleIndexes = indexes
-      knownTokens = tokens
+      this.query = input
+      this.baseState = maybeBaseState
+      this.possibleIndexes = indexes
+      this.knownTokens = tokens
+      this.recordedStats = recordedStats
       mainMenu()
     } catch {
       case e: RuntimeException =>

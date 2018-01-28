@@ -5,16 +5,16 @@ import org.neo4j.cypher.internal.compiler.v3_3.spi.GraphStatistics
 import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
 import org.neo4j.cypher.internal.ir.v3_3.{Cardinality, Selectivity}
 
-class RecordedStatistics(nodes: Map[LabelId, Cardinality],
-                         allNodes: Cardinality,
-                         edgeCardinality: Map[(Option[LabelId], Option[RelTypeId], Option[LabelId]), Cardinality])
+case class StoredStatistics(labelCardinality: Map[LabelId, Cardinality],
+                            allNodes: Cardinality,
+                            edgeCardinality: Map[(Option[LabelId], Option[RelTypeId], Option[LabelId]), Cardinality])
   extends GraphStatistics {
 
   override def nodesWithLabelCardinality(labelId: Option[LabelId]): Cardinality =
     if (labelId.isEmpty)
       allNodes
     else
-      nodes(labelId.get)
+      labelCardinality(labelId.get)
 
   override def nodesAllCardinality(): Cardinality = allNodes
 
@@ -26,4 +26,28 @@ class RecordedStatistics(nodes: Map[LabelId, Cardinality],
   override def indexSelectivity(index: IndexDescriptor): Option[Selectivity] = Some(Selectivity(0.5))
 
   override def indexPropertyExistsSelectivity(index: IndexDescriptor): Option[Selectivity] = Some(Selectivity(0.5))
+
+  override def toString: String = {
+
+    def y[T <: org.neo4j.cypher.internal.frontend.v3_3.NameId](in: Option[T]): String = in.map(_.id.toString).getOrElse("")
+
+    val labels = labelCardinality.map {
+      case (id, card) => s"  :${id.id} ${card.amount}"
+    }.mkString("\n")
+
+    val edges = edgeCardinality.map {
+      case ((fromLabel, relType, toLabel), cardinality) =>
+        s"(${y(fromLabel)})-[${y(relType)}]->(${y(toLabel)}) : ${cardinality.amount}"
+    }.toSeq.sorted.mkString("\n")
+
+    s"""Node count
+       |  ${allNodes.amount}
+       |
+       |Label cardinality
+       |$labels
+       |
+       |Edge cardinality
+       |$edges
+       |""".stripMargin
+  }
 }

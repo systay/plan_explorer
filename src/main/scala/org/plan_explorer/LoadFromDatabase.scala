@@ -4,6 +4,7 @@ import java.io.File
 
 import org.neo4j.cypher.internal.compiler.v3_3.spi.PlanContext
 import org.neo4j.cypher.internal.frontend.v3_3.phases.devNullLogger
+import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
 import org.neo4j.cypher.internal.spi.v3_3.{TransactionBoundPlanContext, TransactionalContextWrapper}
 import org.neo4j.cypher.javacompat.internal.GraphDatabaseCypherService
 import org.neo4j.graphdb.GraphDatabaseService
@@ -19,7 +20,10 @@ import org.plan_explorer.Main.IndexUse
 
 object LoadFromDatabase {
 
-  def loadFromDatabase(path: String, query: String, tokens: Tokens): StateFromDb = {
+  def loadFromDatabase(path: String,
+                       query: String,
+                       oldTokens: Tokens,
+                       recordingStatistics: RecordingStatistics): StateFromDb = {
 
     val file = new File(path)
     if (!file.exists())
@@ -38,13 +42,49 @@ object LoadFromDatabase {
       val dbApi = dbService.asInstanceOf[GraphDatabaseAPI]
       val tx = dbApi.beginTransaction(KernelTransaction.Type.`implicit`, AUTH_DISABLED)
       val planContext = createPlanContext(query, dbService, tx)
-      val newTokens = getTokensFromDb(tokens, planContext)
+      val newTokens = getTokensFromDb(oldTokens, planContext)
       val newIndexes = getIndexes(newTokens, planContext)
+      val statistics = loadStatistics(oldTokens, newTokens, recordingStatistics, planContext)
 
-      StateFromDb(newIndexes, null, newTokens)
+      StateFromDb(newIndexes, statistics, newTokens)
     } finally {
       dbService.shutdown()
     }
+  }
+
+  private def loadStatistics(oldTokens: Tokens,
+                             newTokens: Tokens,
+                             recordingStatistics: RecordingStatistics,
+                             planContext: PlanContext) = {
+    val old2loadedLabels: Map[Int, Int] = oldTokens.labels.map {
+      case (label, oldLabelId) => oldLabelId -> newTokens.labels(label)
+    }
+    val old2loadedTypes = oldTokens.types.map {
+      case (relType, oldToken) => oldToken -> newTokens.types(relType)
+    }
+
+
+    val statistics = planContext.statistics
+    val labelCardinality = recordingStatistics.interestingLabels.map {
+      oldLabelId =>
+        val loadedId = old2loadedLabels(oldLabelId.id)
+        val labelId = LabelId(loadedId)
+        labelId -> statistics.nodesWithLabelCardinality(Some(labelId))
+    }.toMap
+
+    val allNodes = statistics.nodesAllCardinality()
+
+    val edgeCardinality = recordingStatistics.interestingEdges.map {
+      case (fromOldLabel, oldRelType, toOldLabel) =>
+        val fromLabel = fromOldLabel.map(oldId => LabelId(old2loadedLabels(oldId.id)))
+        val toLabel = toOldLabel.map(oldId => LabelId(old2loadedLabels(oldId.id)))
+        val relType = oldRelType.map(oldId => RelTypeId(old2loadedTypes(oldId.id)))
+        val cardinality = statistics.cardinalityByLabelsAndRelationshipType(fromLabel, relType, toLabel)
+
+        (fromLabel, relType, toLabel) -> cardinality
+    }.toMap
+
+    StoredStatistics(labelCardinality, allNodes, edgeCardinality)
   }
 
   private def getIndexes(newTokens: Tokens, planContext: PlanContext) = {
@@ -92,10 +132,9 @@ object LoadFromDatabase {
     val context = contextFactory.newContext(ConnectionInfo, tx, query, EMPTY_MAP)
     new TransactionBoundPlanContext(TransactionalContextWrapper(context), devNullLogger)
   }
-
-  case class StateFromDb(indexes: Set[IndexUse], statistics: RecordedStatistics, tokens: Tokens)
-
 }
+
+case class StateFromDb(indexes: Set[IndexUse], statistics: StoredStatistics, tokens: Tokens)
 
 object ConnectionInfo extends ClientConnectionInfo {
   override def protocol(): String = "w00t"
