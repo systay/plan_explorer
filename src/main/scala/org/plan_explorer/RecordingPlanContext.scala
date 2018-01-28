@@ -63,12 +63,6 @@ class RecordingPlanContext extends PlanContext {
     labels.getOrElseUpdate(labelName, nextToken())
   }
 
-  private def nextToken() = {
-    val id = tokenCounter
-    tokenCounter += 1
-    id
-  }
-
   override def getPropertyKeyName(id: Int): String = propKeys.find(p => p._2 == id).get._1
 
   override def getOptPropertyKeyId(propertyKeyName: String): Option[Int] =
@@ -85,5 +79,11 @@ class RecordingPlanContext extends PlanContext {
 
   override def getRelTypeId(relType: String): Int = {
     types.getOrElseUpdate(relType, nextToken())
+  }
+
+  private def nextToken() = {
+    val id = tokenCounter
+    tokenCounter += 1
+    id
   }
 }

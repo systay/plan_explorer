@@ -17,7 +17,6 @@ object Main {
   private var statistics: RecordedStatistics = _
 
   def main(args: Array[String]): Unit = {
-
     println(
       s"""Welcome to plan explorer!
          |Using Neo4j ${Version.getNeo4jVersion}
@@ -92,7 +91,7 @@ object Main {
     try {
       val input =
         if (true)
-          "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 AND exists(a.prop3) RETURN *"
+          "MATCH (a:A:B) WHERE a.prop1 = 42 AND a.prop2 > 43 RETURN *"
         else
           multiLineInput()
 
@@ -117,13 +116,6 @@ object Main {
     }
   }
 
-  case class IndexUse(label: String, props: Seq[String], unique: Boolean) {
-    override def toString: String = {
-      val uniqueS = if (unique) "UNIQUE " else ""
-      s"${uniqueS}INDEX ON :$label(${props.mkString(", ")})"
-    }
-  }
-
   private def multiLineInput(): String = {
     val builder = new StringBuilder
     val reader = getReader()
@@ -137,4 +129,12 @@ object Main {
 
     "This never happens"
   }
+
+  case class IndexUse(label: String, props: Seq[String], unique: Boolean) {
+    override def toString: String = {
+      val uniqueS = if (unique) "UNIQUE " else ""
+      s"${uniqueS}INDEX ON :$label(${props.mkString(", ")})"
+    }
+  }
+
 }
