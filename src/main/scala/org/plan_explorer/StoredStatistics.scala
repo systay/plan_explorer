@@ -29,7 +29,8 @@ case class StoredStatistics(labelCardinality: Map[LabelId, Cardinality],
 
   override def toString: String = {
 
-    def y[T <: org.neo4j.cypher.internal.frontend.v3_3.NameId](in: Option[T]): String = in.map(_.id.toString).getOrElse("")
+    def y[T <: org.neo4j.cypher.internal.frontend.v3_3.NameId](in: Option[T]): String =
+      in.map(_.id.toString).getOrElse("")
 
     val labels = labelCardinality.map {
       case (id, card) => s"  :${id.id} ${card.amount}"

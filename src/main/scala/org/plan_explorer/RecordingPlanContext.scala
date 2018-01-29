@@ -89,11 +89,17 @@ class RecordingPlanContext extends PlanContext {
   }
 }
 
-class RecordingStatistics extends GraphStatistics {
+class RecordingStatistics extends GraphStatistics with InterestingStats {
 
-  val interestingLabels = new collection.mutable.HashSet[LabelId]()
-  val interestingEdges = new collection.mutable.HashSet[(Option[LabelId], Option[RelTypeId], Option[LabelId])]()
-  val interestingIndexes = new collection.mutable.HashSet[IndexDescriptor]()
+  private val interestingLabels = new collection.mutable.HashSet[LabelId]()
+  private val interestingEdges = new collection.mutable.HashSet[(Option[LabelId], Option[RelTypeId], Option[LabelId])]()
+  private val interestingIndexes = new collection.mutable.HashSet[IndexDescriptor]()
+
+  override def labels: Set[LabelId] = interestingLabels.toSet
+
+  override def edges: Set[(Option[LabelId], Option[RelTypeId], Option[LabelId])] = interestingEdges.toSet
+
+  override def indexes: Set[IndexDescriptor] = interestingIndexes.toSet
 
   override def nodesWithLabelCardinality(labelId: Option[LabelId]): Cardinality = {
     labelId.foreach(interestingLabels.add)
@@ -114,4 +120,12 @@ class RecordingStatistics extends GraphStatistics {
     Some(Selectivity(1))
   }
 
+}
+
+trait InterestingStats {
+  def labels: Set[LabelId]
+
+  def edges: Set[(Option[LabelId], Option[RelTypeId], Option[LabelId])]
+
+  def indexes: Set[IndexDescriptor]
 }

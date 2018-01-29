@@ -23,7 +23,7 @@ object LoadFromDatabase {
   def loadFromDatabase(path: String,
                        query: String,
                        oldTokens: Tokens,
-                       recordingStatistics: RecordingStatistics): StateFromDb = {
+                       recordingStatistics: InterestingStats): StateFromDb = {
 
     val file = new File(path)
     if (!file.exists())
@@ -54,7 +54,7 @@ object LoadFromDatabase {
 
   private def loadStatistics(oldTokens: Tokens,
                              newTokens: Tokens,
-                             recordingStatistics: RecordingStatistics,
+                             recordingStatistics: InterestingStats,
                              planContext: PlanContext) = {
     val old2loadedLabels: Map[Int, Int] = oldTokens.labels.map {
       case (label, oldLabelId) => oldLabelId -> newTokens.labels(label)
@@ -63,9 +63,8 @@ object LoadFromDatabase {
       case (relType, oldToken) => oldToken -> newTokens.types(relType)
     }
 
-
     val statistics = planContext.statistics
-    val labelCardinality = recordingStatistics.interestingLabels.map {
+    val labelCardinality = recordingStatistics.labels.map {
       oldLabelId =>
         val loadedId = old2loadedLabels(oldLabelId.id)
         val labelId = LabelId(loadedId)
@@ -74,7 +73,7 @@ object LoadFromDatabase {
 
     val allNodes = statistics.nodesAllCardinality()
 
-    val edgeCardinality = recordingStatistics.interestingEdges.map {
+    val edgeCardinality = recordingStatistics.edges.map {
       case (fromOldLabel, oldRelType, toOldLabel) =>
         val fromLabel = fromOldLabel.map(oldId => LabelId(old2loadedLabels(oldId.id)))
         val toLabel = toOldLabel.map(oldId => LabelId(old2loadedLabels(oldId.id)))

@@ -15,7 +15,7 @@ object Main {
   private var possibleIndexes: Set[IndexPossibility] = _
   private var selectedIndexes: Set[IndexUse] = Set.empty
   private var storedStats: StoredStatistics = _
-  private var recordedStats: RecordingStatistics = _
+  private var interestingStatistics: InterestingStats = _
 
   def main(args: Array[String]): Unit = {
     println(
@@ -44,7 +44,7 @@ object Main {
       ("Load schema and statistics from database", loadFromDatabase),
       //    ("Edit schema and statistics", mainMenu),
       ("Edit indexes", indexMgmt),
-      //      ("Explore plan space", mainMenu),
+      ("Explore plan space", explorePlanSpace),
       ("Change query", enterQuery),
       ("Reset state", reset),
       ("Quit", () => Quit)
@@ -62,7 +62,7 @@ object Main {
     if (storedStats == null)
       println("No stats set")
     else
-      println(recordedStats)
+      println(interestingStatistics)
 
     mainMenu()
   }
@@ -72,7 +72,7 @@ object Main {
     selectedIndexes = Set.empty
     storedStats = null
     possibleIndexes = null
-    recordedStats = null
+    interestingStatistics = null
     enterQuery()
   }
 
@@ -80,7 +80,7 @@ object Main {
     val path = getReader().readLine("Path to database: ")
 
     try {
-      val dbState = LoadFromDatabase.loadFromDatabase(path, query, knownTokens, recordedStats)
+      val dbState = LoadFromDatabase.loadFromDatabase(path, query, knownTokens, interestingStatistics)
       this.selectedIndexes = dbState.indexes
       this.storedStats = dbState.statistics
     } catch {
@@ -92,6 +92,11 @@ object Main {
 
   private def indexMgmt(): Action = {
     selectedIndexes = IndexManagement.pickIndexes(selectedIndexes, possibleIndexes)
+    mainMenu()
+  }
+
+  private def explorePlanSpace(): Action = {
+    PlanExplorer.explore(getReader())
     mainMenu()
   }
 
@@ -117,7 +122,8 @@ object Main {
       this.baseState = maybeBaseState
       this.possibleIndexes = indexes
       this.knownTokens = tokens
-      this.recordedStats = recordedStats
+      this.interestingStatistics = recordedStats
+
       mainMenu()
     } catch {
       case e: RuntimeException =>
