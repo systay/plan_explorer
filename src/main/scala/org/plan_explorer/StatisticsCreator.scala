@@ -26,20 +26,25 @@ trait StatisticsValue {
 
 case class Static(cardinality: Cardinality) extends StatisticsValue {
   override def evaluate(x: Double, y: Double): Cardinality = cardinality
+
+  override def toString: String = s"static cardinality: ${cardinality.amount}"
 }
 
-case class Dynamic(f: (Double, Double) => Double) extends StatisticsValue {
+case class Dynamic(f: (Double, Double) => Double, stringVersion: String)
+  extends StatisticsValue {
   override def evaluate(x: Double, y: Double): Cardinality = Cardinality(f(x, y))
+
+  override def toString: String = s"dynamic cardinality: $stringVersion"
 }
 
 object Dynamic {
-  // Take a string that is a Scala expression using arithmetics, and having the two variables x and y available in scope
+  // Take a string that is a Scala arithmetic expression, and having the two variables x and y available in scope
   def createFunction(input: String): Dynamic = {
     val f = locally {
       val tb = universe.runtimeMirror(getClass.getClassLoader).mkToolBox()
 
       tb.eval(tb.parse(s"""locally { (x:Double, y: Double) => $input }""")).asInstanceOf[(Double, Double) => Double]
     }
-    Dynamic(f)
+    Dynamic(f, input)
   }
 }

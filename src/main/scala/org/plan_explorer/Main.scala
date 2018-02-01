@@ -3,6 +3,7 @@ package org.plan_explorer
 import org.jline.reader._
 import org.jline.terminal.{Terminal, TerminalBuilder}
 import org.neo4j.cypher.internal.frontend.v3_3.phases.BaseState
+import org.neo4j.cypher.internal.ir.v3_3.Cardinality
 import org.neo4j.kernel.internal.Version
 
 object Main {
@@ -14,7 +15,7 @@ object Main {
   private var terminal: Terminal = TerminalBuilder.terminal()
   private var possibleIndexes: Set[IndexPossibility] = _
   private var selectedIndexes: Set[IndexUse] = Set.empty
-  private var storedStats: StoredStatistics = _
+  private var storedStats: Option[StoredStatistics] = None
   private var interestingStatistics: InterestingStats = _
 
   def main(args: Array[String]): Unit = {
@@ -70,7 +71,7 @@ object Main {
   private def reset(): Action = {
     println("Reset state")
     selectedIndexes = Set.empty
-    storedStats = null
+    storedStats = None
     possibleIndexes = null
     interestingStatistics = null
     enterQuery()
@@ -82,7 +83,7 @@ object Main {
     try {
       val dbState = LoadFromDatabase.loadFromDatabase(path, query, knownTokens, interestingStatistics)
       this.selectedIndexes = dbState.indexes
-      this.storedStats = dbState.statistics
+      this.storedStats = Some(dbState.statistics)
     } catch {
       case e: Exception =>
         e.printStackTrace()
@@ -96,7 +97,14 @@ object Main {
   }
 
   private def explorePlanSpace(): Action = {
-    PlanExplorer.explore(getReader())
+    val stats = storedStats.getOrElse {
+      val labels = interestingStatistics.labels.map(l => l -> Cardinality(0)).toMap
+      val edges = interestingStatistics.edges.map(l => l -> Cardinality(0)).toMap
+      val allNodes = Cardinality(0)
+      StoredStatistics(labels, allNodes, edges)
+    }
+
+    PlanExplorer.explore(getReader(), stats, mainMenu())
     mainMenu()
   }
 
