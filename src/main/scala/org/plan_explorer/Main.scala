@@ -28,11 +28,11 @@ object Main {
     var current: Action = enterQuery()
 
     while (current != Quit) {
-      current = current.chooseOptionFromReader(getReader())
+      current = current.chooseOptionFromReader(createReader())
     }
   }
 
-  def getReader(): LineReader = {
+  def createReader(): LineReader = {
     terminal.close()
     terminal = TerminalBuilder.builder().build()
     LineReaderBuilder.builder().terminal(terminal).build()
@@ -78,7 +78,7 @@ object Main {
   }
 
   private def loadFromDatabase(): Action = {
-    val path = getReader().readLine("Path to database: ")
+    val path = createReader().readLine("Path to database: ")
 
     try {
       val dbState = LoadFromDatabase.loadFromDatabase(path, query, knownTokens, interestingStatistics)
@@ -88,11 +88,11 @@ object Main {
       case e: Exception =>
         e.printStackTrace()
     }
-    mainMenu()
+    viewState()
   }
 
   private def indexMgmt(): Action = {
-    selectedIndexes = IndexManagement.pickIndexes(selectedIndexes, possibleIndexes)
+    selectedIndexes = IndexManagement.pickIndexes(selectedIndexes, possibleIndexes, knownTokens)
     mainMenu()
   }
 
@@ -104,7 +104,7 @@ object Main {
       StoredStatistics(labels, allNodes, edges)
     }
 
-    PlanExplorer.explore(getReader(), stats, mainMenu())
+    PlanExplorer.explore(createReader(), stats, mainMenu())
     mainMenu()
   }
 
@@ -142,7 +142,7 @@ object Main {
 
   private def multiLineInput(): String = {
     val builder = new StringBuilder
-    val reader = getReader()
+    val reader = createReader()
     while (true) {
       reader.readLine("") match {
         case null => return builder.toString()
@@ -153,12 +153,4 @@ object Main {
 
     "This never happens"
   }
-
-  case class IndexUse(label: String, props: Seq[String], unique: Boolean) {
-    override def toString: String = {
-      val uniqueS = if (unique) "UNIQUE " else ""
-      s"${uniqueS}INDEX ON :$label(${props.mkString(", ")})"
-    }
-  }
-
 }

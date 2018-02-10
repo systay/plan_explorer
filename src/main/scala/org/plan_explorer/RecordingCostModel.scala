@@ -17,16 +17,16 @@ class RecordingCostModel(inner: CostModel) extends CostModel {
   override def apply(plan: LogicalPlan, queryGraphInput: Metrics.QueryGraphSolverInput): Cost = {
 
     plan.findByAllClass[NodeLogicalLeafPlan].foreach {
-      case NodeUniqueIndexSeek(_, LabelToken(label, _), props, _, _) =>
-        interestingIndexes.add(IndexPossibility(label, props.map(_.name)))
-      case NodeIndexSeek(_, LabelToken(label, _), props, _, _) =>
-        interestingIndexes.add(IndexPossibility(label, props.map(_.name)))
-      case NodeIndexScan(_, LabelToken(label, _), props, _) =>
-        interestingIndexes.add(IndexPossibility(label, Seq(props.name)))
-      case NodeIndexContainsScan(_, LabelToken(label, _), props, _, _) =>
-        interestingIndexes.add(IndexPossibility(label, Seq(props.name)))
-      case NodeIndexEndsWithScan(_, LabelToken(label, _), props, _, _) =>
-        interestingIndexes.add(IndexPossibility(label, Seq(props.name)))
+      case NodeUniqueIndexSeek(_, LabelToken(_, id), props, _, _) =>
+        interestingIndexes.add(IndexPossibility(id.id, props.map(_.nameId.id)))
+      case NodeIndexSeek(_, LabelToken(_, id), props, _, _) =>
+        interestingIndexes.add(IndexPossibility(id, props.map(_.nameId.id)))
+      case NodeIndexScan(_, LabelToken(_, id), props, _) =>
+        interestingIndexes.add(IndexPossibility(id, Seq(props.nameId.id)))
+      case NodeIndexContainsScan(_, LabelToken(_, id), props, _, _) =>
+        interestingIndexes.add(IndexPossibility(id, Seq(props.nameId.id)))
+      case NodeIndexEndsWithScan(_, LabelToken(_, id), props, _, _) =>
+        interestingIndexes.add(IndexPossibility(id, Seq(props.nameId.id)))
       case _ =>
     }
 
@@ -34,6 +34,3 @@ class RecordingCostModel(inner: CostModel) extends CostModel {
   }
 }
 
-case class IndexPossibility(label: String, props: Seq[String]) {
-  override def toString: String = s"(:$label {${props.mkString(",")}})"
-}

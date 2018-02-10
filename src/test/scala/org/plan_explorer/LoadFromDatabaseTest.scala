@@ -5,7 +5,6 @@ import java.util.concurrent.TimeUnit
 
 import org.neo4j.graphdb.factory.GraphDatabaseFactory
 import org.neo4j.graphdb.{DynamicLabel, DynamicRelationshipType, GraphDatabaseService, Node}
-import org.plan_explorer.Main.IndexUse
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.util.Random
@@ -23,14 +22,19 @@ class LoadFromDatabaseTest extends FunSuite with Matchers {
     val (_, oldTokens, stats) = PreparatoryPlanning.plan(query, baseState)
     val result = LoadFromDatabase.loadFromDatabase(file.getAbsolutePath, query, oldTokens, stats)
 
-    result.indexes should equal(Set(
-      IndexUse("A", Seq("prop1"), unique = false),
-      IndexUse("A", Seq("prop2"), unique = false),
-      IndexUse("B", Seq("prop1"), unique = false),
-      IndexUse("B", Seq("prop2"), unique = false)
+    val namedIndexes = result.indexes.map {
+      case IndexUse(labelId, propIds, unique) =>
+        (result.tokens.reverseLabels(labelId), propIds.map(result.tokens.reverseProps), unique)
+    }
+
+    namedIndexes should equal(Set(
+      ("A", Seq("prop1"), false),
+      ("A", Seq("prop2"), false),
+      ("B", Seq("prop1"), false),
+      ("B", Seq("prop2"), false)
     ))
 
-    println(result.statistics)
+    println(result.statistics.toString(result.tokens))
 
     result.statistics.allNodes.amount should equal(1001)
   }

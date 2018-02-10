@@ -27,13 +27,16 @@ case class StoredStatistics(labelCardinality: Map[LabelId, Cardinality],
 
   override def indexPropertyExistsSelectivity(index: IndexDescriptor): Option[Selectivity] = Some(Selectivity(0.5))
 
-  override def toString: String = {
+  def toString(tokens: Tokens): String = {
 
-    def y[T <: org.neo4j.cypher.internal.frontend.v3_3.NameId](in: Option[T]): String =
-      in.map(_.id.toString).getOrElse("")
+    def y[T <: org.neo4j.cypher.internal.frontend.v3_3.NameId](in: Option[T]): String = in match {
+      case Some(labelId: LabelId) => ":" + tokens.reverseLabels(labelId.id)
+      case Some(typeId: RelTypeId) => ":" + tokens.reverseTypes(typeId.id)
+      case None => ""
+    }
 
     val labels = labelCardinality.map {
-      case (id, card) => s"  :${id.id} ${card.amount}"
+      case (id, card) => s"  :${tokens.reverseLabels(id.id)} ${card.amount}"
     }.mkString("\n")
 
     val edges = edgeCardinality.map {

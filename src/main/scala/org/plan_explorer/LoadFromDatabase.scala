@@ -16,7 +16,6 @@ import org.neo4j.kernel.impl.query.Neo4jTransactionalContextFactory
 import org.neo4j.kernel.impl.query.clientconnection.ClientConnectionInfo
 import org.neo4j.kernel.internal.GraphDatabaseAPI
 import org.neo4j.values.virtual.VirtualValues.EMPTY_MAP
-import org.plan_explorer.Main.IndexUse
 
 object LoadFromDatabase {
 
@@ -87,19 +86,18 @@ object LoadFromDatabase {
   }
 
   private def getIndexes(newTokens: Tokens, planContext: PlanContext) = {
-    val propLookup = newTokens.propKeys.map(_.swap)
 
     val newIndexes = newTokens.labels.flatMap {
-      case (label, labelId) =>
+      case (_, labelId) =>
         val normalIndexes = planContext.indexesGetForLabel(labelId).map {
           descriptor =>
-            val props = descriptor.properties.map(pki => propLookup(pki.id))
-            IndexUse(label, props, unique = false)
+            val props = descriptor.properties.map(_.id)
+            IndexUse(labelId, props, unique = false)
         }
         val uniqueIndexes = planContext.uniqueIndexesGetForLabel(labelId).map {
           descriptor =>
-            val props = descriptor.properties.map(pki => propLookup(pki.id))
-            IndexUse(label, props, unique = true)
+            val props = descriptor.properties.map(_.id)
+            IndexUse(labelId, props, unique = true)
         }
         normalIndexes ++ uniqueIndexes
     }.toSet

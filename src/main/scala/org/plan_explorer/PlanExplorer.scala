@@ -1,9 +1,22 @@
 package org.plan_explorer
 
+import java.time.Clock
+
 import org.jline.reader.LineReader
+import org.neo4j.cypher.internal.compatibility.v3_3.WrappedMonitors
+import org.neo4j.cypher.internal.compatibility.v3_3.runtime.CommunityRuntimeContextCreator
+import org.neo4j.cypher.internal.compatibility.v3_3.runtime.helpers.simpleExpressionEvaluator
+import org.neo4j.cypher.internal.compiler.v3_3.planner.logical.SimpleMetricsFactory
+import org.neo4j.cypher.internal.compiler.v3_3.planner.logical.idp._
+import org.neo4j.cypher.internal.compiler.v3_3.spi.{GraphStatistics, PlanContext}
+import org.neo4j.cypher.internal.compiler.v3_3.{IndexDescriptor, defaultUpdateStrategy}
+import org.neo4j.cypher.internal.frontend.v3_3.phases.CompilationPhaseTracer.NO_TRACING
+import org.neo4j.cypher.internal.frontend.v3_3.phases.{BaseState, InternalNotificationLogger, devNullLogger}
 import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
-import org.plan_explorer.Main.getReader
+import org.neo4j.cypher.internal.v3_3.logical.plans.{LogicalPlan, ProcedureSignature, QualifiedName, UserFunctionSignature}
+import org.neo4j.kernel.monitoring.Monitors
+import org.plan_explorer.Main.createReader
 
 object PlanExplorer {
   def explore(reader: LineReader, storedStatistics: StoredStatistics, mainMenu: Action): Unit = {
@@ -58,7 +71,7 @@ object PlanExplorer {
     var current: Action = mainExplorerMenu()
 
     while (current != Quit) {
-      current = current.chooseOptionFromReader(getReader())
+      current = current.chooseOptionFromReader(createReader())
     }
   }
 
@@ -70,3 +83,108 @@ object PlanExplorer {
     }
 }
 
+object PlanSpaceProducer {
+  def produce(steps: Int,
+              labels: Map[LabelId, StatisticsValue],
+              edges: Map[(Option[LabelId], Option[RelTypeId], Option[LabelId]), StatisticsValue],
+              allNodes: StatisticsValue): Array[Array[LogicalPlan]] = {
+    val step = 1.0 / steps
+    val results: Array[Array[LogicalPlan]] = Array.ofDim[LogicalPlan](steps, steps)
+    for {
+      xStep <- 0 until steps //0D.until(1D, 1 / steps)
+      yStep <- 0 until steps //D.until(1D, 1 / steps)
+    } {
+      val x = xStep * step
+      val y = yStep * step
+      val labelStats = labels.mapValues(v => v.evaluate(x, y))
+      val edgeStats = edges.mapValues(v => v.evaluate(x, y))
+      val nodeCount = allNodes.evaluate(x, y)
+      val stats = StoredStatistics(labelStats, nodeCount, edgeStats)
+
+    }
+    ???
+  }
+
+  def plan(query: String, baseState: BaseState): LogicalPlan = {
+
+    val config = ParseAndSemanticAnalysis.config
+    val monitors = WrappedMonitors(new Monitors)
+    val monitor = monitors.newMonitor[IDPQueryGraphSolverMonitor]()
+    val solverConfig = new ConfigurableIDPSolverConfig(
+      maxTableSize = config.idpMaxTableSize,
+      iterationDurationLimit = config.idpIterationDuration
+    )
+    val singleComponentPlanner = SingleComponentPlanner(monitor, solverConfig)
+    val queryGraphSolver = IDPQueryGraphSolver(singleComponentPlanner, cartesianProductsOrValueJoins, monitor)
+    val planContext = new MyPlanContext
+
+    val context = CommunityRuntimeContextCreator.create(
+      tracer = NO_TRACING,
+      notificationLogger = devNullLogger,
+      planContext = planContext,
+      queryText = query,
+      debugOptions = Set.empty,
+      offset = None,
+      monitors = monitors,
+      metricsFactory = SimpleMetricsFactory,
+      queryGraphSolver = queryGraphSolver,
+      config = config,
+      updateStrategy = defaultUpdateStrategy,
+      clock = Clock.systemDefaultZone(),
+      evaluator = simpleExpressionEvaluator)
+
+    val compiler = ParseAndSemanticAnalysis.createCompiler
+    val result = compiler.normalizeQuery(baseState, context)
+    val planState = compiler.planPreparedQuery(result, context)
+    planState.logicalPlan
+  }
+
+  class MyPlanContext extends PlanContext {
+    override def indexesGetForLabel(labelId: Int): Iterator[IndexDescriptor] = ???
+
+    override def indexGet(labelName: String, propertyKeys: Seq[String]): Option[IndexDescriptor] = ???
+
+    override def indexExistsForLabel(labelName: String): Boolean = ???
+
+    override def uniqueIndexesGetForLabel(labelId: Int): Iterator[IndexDescriptor] = ???
+
+    override def uniqueIndexGet(labelName: String, propertyKey: Seq[String]): Option[IndexDescriptor] = ???
+
+    override def hasPropertyExistenceConstraint(labelName: String, propertyKey: String): Boolean = ???
+
+    override def checkNodeIndex(idxName: String): Unit = ???
+
+    override def checkRelIndex(idxName: String): Unit = ???
+
+    override def getOrCreateFromSchemaState[T](key: Any, f: => T): T = ???
+
+    override def txIdProvider: () => Long = ???
+
+    override def statistics: GraphStatistics = ???
+
+    override def notificationLogger(): InternalNotificationLogger = ???
+
+    override def getLabelName(id: Int): String = ???
+
+    override def getOptLabelId(labelName: String): Option[Int] = ???
+
+    override def getLabelId(labelName: String): Int = ???
+
+    override def getPropertyKeyName(id: Int): String = ???
+
+    override def getOptPropertyKeyId(propertyKeyName: String): Option[Int] = ???
+
+    override def getPropertyKeyId(propertyKeyName: String): Int = ???
+
+    override def getRelTypeName(id: Int): String = ???
+
+    override def getOptRelTypeId(relType: String): Option[Int] = ???
+
+    override def getRelTypeId(relType: String): Int = ???
+
+    override def procedureSignature(name: QualifiedName): ProcedureSignature = ???
+
+    override def functionSignature(name: QualifiedName): Option[UserFunctionSignature] = ???
+  }
+
+}
