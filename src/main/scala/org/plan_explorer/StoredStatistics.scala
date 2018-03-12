@@ -29,11 +29,7 @@ case class StoredStatistics(labelCardinality: Map[LabelId, Cardinality],
 
   def toString(tokens: Tokens): String = {
 
-    def y[T <: org.neo4j.cypher.internal.frontend.v3_3.NameId](in: Option[T]): String = in match {
-      case Some(labelId: LabelId) => ":" + tokens.reverseLabels(labelId.id)
-      case Some(typeId: RelTypeId) => ":" + tokens.reverseTypes(typeId.id)
-      case None => ""
-    }
+    val y = tokens.tokenToString _
 
     val labels = labelCardinality.map {
       case (id, card) => s"  :${tokens.reverseLabels(id.id)} ${card.amount}"

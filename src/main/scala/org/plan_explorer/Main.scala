@@ -21,6 +21,8 @@ object Main {
   def main(args: Array[String]): Unit = {
     println(
       s"""Welcome to plan explorer!
+         |verbose ${java.lang.Boolean.getBoolean("pickBestPlan.VERBOSE")}
+
          |Using Neo4j ${Version.getNeo4jVersion}
          |*-*-*-*-*-*-*-*-*-*-*-*-*
          |""".stripMargin)
@@ -104,7 +106,7 @@ object Main {
       StoredStatistics(labels, allNodes, edges)
     }
 
-    PlanExplorer.explore(createReader(), stats, mainMenu())
+    PlanExplorer.explore(createReader(), stats, mainMenu(), knownTokens, selectedIndexes, baseState)
     mainMenu()
   }
 
