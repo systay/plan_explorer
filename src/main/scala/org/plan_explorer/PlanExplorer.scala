@@ -5,7 +5,7 @@ import org.neo4j.cypher.internal.frontend.v3_3.phases.BaseState
 import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
 import org.neo4j.cypher.internal.v3_3.logical.plans.LogicalPlan
-import org.plan_explorer.Main.createReader
+import org.plan_explorer.Main._
 
 object PlanExplorer {
   def explore(reader: LineReader,
@@ -21,7 +21,7 @@ object PlanExplorer {
       storedStatistics.edgeCardinality.mapValues(Static.apply)
 
     def plotIt(): Action = {
-      val result = PlanSpaceProducer.produce(10, labels, edges, allNodes, baseState, tokens, indexes)
+      val result: Array[Array[LogicalPlan]] = PlanSpaceProducer.produce(10, labels, edges, allNodes, baseState, tokens, indexes)
       val allPlans = new scala.collection.mutable.HashSet[LogicalPlan]()
       for {
         lvl1: Array[LogicalPlan] <- result
@@ -30,16 +30,28 @@ object PlanExplorer {
         allPlans.add(plan)
       }
 
-      val x: Map[LogicalPlan, Int] = allPlans.zipWithIndex.toMap
+      val plansWithId: Map[LogicalPlan, Int] = allPlans.zipWithIndex.toMap
 
-      for (lvl1 <- result) {
-        for (plan <- lvl1) {
-          val id = x(plan)
-          print(('A' + id).asInstanceOf[Char])
-        }
-        println()
+      drawChart(result, plansWithId)
+
+      val planLookup: Map[Int, LogicalPlan] = plansWithId.map(_.swap)
+      var thisMenu: Action = null
+
+      def showPlan(i: Int): Action = {
+        val plan = planLookup(i)
+        println(plan)
+        thisMenu
       }
-      mainExplorerMenu()
+
+      val showPlanOptions = plansWithId.values.map {
+        case x => s"${asChar(x)}" -> (() => showPlan(x))
+      }.toSeq
+
+      val allOptions = showPlanOptions :+ ("Back", () => mainExplorerMenu())
+
+      thisMenu = Menu(allOptions: _*)
+
+      thisMenu
     }
 
 
@@ -90,6 +102,18 @@ object PlanExplorer {
       current = current.chooseOptionFromReader(createReader())
     }
   }
+
+  private def drawChart(result: Array[Array[LogicalPlan]], x: Map[LogicalPlan, Int]): Unit = {
+    for (lvl1 <- result) {
+      for (plan <- lvl1) {
+        val id = x(plan)
+        print(asChar(id))
+      }
+      println()
+    }
+  }
+
+  def asChar(i: Int) = ('A' + i).asInstanceOf[Char]
 
   private def maybeInt(in: String): Option[Int] =
     try {
