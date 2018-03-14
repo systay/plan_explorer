@@ -4,7 +4,7 @@ import java.io.File
 
 import org.neo4j.cypher.internal.compiler.v3_3.spi.PlanContext
 import org.neo4j.cypher.internal.frontend.v3_3.phases.devNullLogger
-import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
+import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, PropertyKeyId, RelTypeId}
 import org.neo4j.cypher.internal.spi.v3_3.{TransactionBoundPlanContext, TransactionalContextWrapper}
 import org.neo4j.cypher.javacompat.internal.GraphDatabaseCypherService
 import org.neo4j.graphdb.GraphDatabaseService
@@ -55,7 +55,7 @@ object LoadFromDatabase {
                              newTokens: Tokens,
                              recordingStatistics: InterestingStats,
                              planContext: PlanContext) = {
-    val old2loadedLabels: Map[Int, Int] = oldTokens.labels.map {
+    val old2loadedLabels: Map[LabelId, LabelId] = oldTokens.labels.map {
       case (label, oldLabelId) => oldLabelId -> newTokens.labels(label)
     }
     val old2loadedTypes = oldTokens.types.map {
@@ -65,7 +65,7 @@ object LoadFromDatabase {
     val statistics = planContext.statistics
     val labelCardinality = recordingStatistics.labels.map {
       oldLabelId =>
-        val loadedId = old2loadedLabels(oldLabelId.id)
+        val loadedId = old2loadedLabels(oldLabelId)
         val labelId = LabelId(loadedId)
         labelId -> statistics.nodesWithLabelCardinality(Some(labelId))
     }.toMap
@@ -74,9 +74,9 @@ object LoadFromDatabase {
 
     val edgeCardinality = recordingStatistics.edges.map {
       case (fromOldLabel, oldRelType, toOldLabel) =>
-        val fromLabel = fromOldLabel.map(oldId => LabelId(old2loadedLabels(oldId.id)))
-        val toLabel = toOldLabel.map(oldId => LabelId(old2loadedLabels(oldId.id)))
-        val relType = oldRelType.map(oldId => RelTypeId(old2loadedTypes(oldId.id)))
+        val fromLabel = fromOldLabel.map(oldId => LabelId(old2loadedLabels(oldId)))
+        val toLabel = toOldLabel.map(oldId => LabelId(old2loadedLabels(oldId)))
+        val relType = oldRelType.map(oldId => RelTypeId(old2loadedTypes(oldId)))
         val cardinality = statistics.cardinalityByLabelsAndRelationshipType(fromLabel, relType, toLabel)
 
         (fromLabel, relType, toLabel) -> cardinality
@@ -91,13 +91,11 @@ object LoadFromDatabase {
       case (_, labelId) =>
         val normalIndexes = planContext.indexesGetForLabel(labelId).map {
           descriptor =>
-            val props = descriptor.properties.map(_.id)
-            IndexUse(labelId, props, unique = false)
+            IndexUse(labelId, descriptor.properties, unique = false)
         }
         val uniqueIndexes = planContext.uniqueIndexesGetForLabel(labelId).map {
           descriptor =>
-            val props = descriptor.properties.map(_.id)
-            IndexUse(labelId, props, unique = true)
+            IndexUse(labelId, descriptor.properties, unique = true)
         }
         normalIndexes ++ uniqueIndexes
     }.toSet
@@ -106,15 +104,15 @@ object LoadFromDatabase {
 
   private def getTokensFromDb(tokens: Tokens, planContext: PlanContext) = {
     val labels = tokens.labels.keySet.map {
-      l => l -> planContext.getLabelId(l)
+      l => l -> LabelId(planContext.getLabelId(l))
     }.toMap
 
     val propKeys = tokens.propKeys.keySet.map {
-      p => p -> planContext.getPropertyKeyId(p)
+      p => p -> PropertyKeyId(planContext.getPropertyKeyId(p))
     }.toMap
 
     val types = tokens.types.keySet.map {
-      p => p -> planContext.getRelTypeId(p)
+      p => p -> RelTypeId(planContext.getRelTypeId(p))
     }.toMap
 
     val newTokens = Tokens(labels, types, propKeys)

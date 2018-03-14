@@ -32,7 +32,7 @@ case class StoredStatistics(labelCardinality: Map[LabelId, Cardinality],
     val y = tokens.tokenToString _
 
     val labels = labelCardinality.map {
-      case (id, card) => s"  :${tokens.reverseLabels(id.id)} ${card.amount}"
+      case (id, card) => s"  :${tokens.reverseLabels(id)} ${card.amount}"
     }.mkString("\n")
 
     val edges = edgeCardinality.map {

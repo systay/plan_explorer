@@ -10,6 +10,7 @@ import org.neo4j.cypher.internal.v3_3.logical.plans.{ProcedureSignature, Qualifi
 import scala.collection.mutable
 
 class RecordingPlanContext extends PlanContext {
+  override val statistics: RecordingStatistics = new RecordingStatistics
   val labels = mutable.HashMap.empty[String, Int]
   val types = mutable.HashMap.empty[String, Int]
   val propKeys = mutable.HashMap.empty[String, Int]
@@ -48,8 +49,6 @@ class RecordingPlanContext extends PlanContext {
 
   override def txIdProvider: () => Long = () => 0L
 
-  override val statistics: RecordingStatistics = new RecordingStatistics
-
   override def notificationLogger(): InternalNotificationLogger = devNullLogger
 
   override def procedureSignature(name: QualifiedName): ProcedureSignature = ???
@@ -62,6 +61,12 @@ class RecordingPlanContext extends PlanContext {
 
   override def getLabelId(labelName: String): Int = {
     labels.getOrElseUpdate(labelName, nextToken())
+  }
+
+  private def nextToken() = {
+    val id = tokenCounter
+    tokenCounter += 1
+    id
   }
 
   override def getPropertyKeyName(id: Int): String = propKeys.find(p => p._2 == id).get._1
@@ -81,12 +86,31 @@ class RecordingPlanContext extends PlanContext {
   override def getRelTypeId(relType: String): Int = {
     types.getOrElseUpdate(relType, nextToken())
   }
+}
 
-  private def nextToken() = {
-    val id = tokenCounter
-    tokenCounter += 1
-    id
+case class InterestingStatsImpl(labels: Set[LabelId],
+                                edges: Set[(Option[LabelId], Option[RelTypeId], Option[LabelId])],
+                                indexes: Set[IndexDescriptor]) extends InterestingStats {
+  override def translateBetween(tokensBefore: Tokens, tokensAfter: Tokens): InterestingStats = {
+    val labels = this.labels.map(l => tokensAfter.labels(tokensBefore.reverseLabels(l)))
+    val edges = this.edges.map {
+      case (ml, mt, mr) =>
+        val newL = ml.map(l => tokensAfter.labels(tokensBefore.reverseLabels(l)))
+        val newR = mr.map(r => tokensAfter.labels(tokensBefore.reverseLabels(r)))
+        val newT = mt.map(t => tokensAfter.types(tokensBefore.reverseTypes(t)))
+
+        (newL, newT, newR)
+    }
+    val indexes = this.indexes.map {
+      case IndexDescriptor(l, props) =>
+        val newL = tokensAfter.labels(tokensBefore.reverseLabels(l))
+        val newProps = props.map(p => tokensAfter.propKeys(tokensBefore.reverseProps(p)))
+        IndexDescriptor(newL, newProps)
+    }
+
+    InterestingStatsImpl(labels, edges, indexes)
   }
+
 }
 
 class RecordingStatistics extends GraphStatistics with InterestingStats {
@@ -100,6 +124,10 @@ class RecordingStatistics extends GraphStatistics with InterestingStats {
   override def edges: Set[(Option[LabelId], Option[RelTypeId], Option[LabelId])] = interestingEdges.toSet
 
   override def indexes: Set[IndexDescriptor] = interestingIndexes.toSet
+
+  override def translateBetween(tokensBefore: Tokens, tokensAfter: Tokens): InterestingStats =
+    InterestingStatsImpl(interestingLabels.toSet, interestingEdges.toSet, interestingIndexes.toSet).
+      translateBetween(tokensBefore, tokensAfter)
 
   override def nodesWithLabelCardinality(labelId: Option[LabelId]): Cardinality = {
     labelId.foreach(interestingLabels.add)
@@ -119,25 +147,6 @@ class RecordingStatistics extends GraphStatistics with InterestingStats {
     interestingIndexes.add(index)
     Some(Selectivity(1))
   }
-
-  override def toString(tokens: Tokens) = {
-
-    val y: Option[NameId] => String = tokens.tokenToString
-
-    val labelNames = interestingLabels.toSeq.map(x => y(Some(x)))
-    val edgeNames = interestingEdges.toSeq.map {
-      case (ll, e, rl) => (y(ll), y(e), y(rl))
-    }
-    val indexes = interestingIndexes.map {
-      case IndexDescriptor(label, props) => s"${y(Some(label))}(${props.map(p => y(Some(p))).mkString(", ")})"
-    }
-
-    s"""RecordingStatistics(
-       |  interestingLabels=${labelNames.mkString(", ")},
-       |  interestingEdges=${edgeNames.mkString(", ")},
-       |  interestingIndexes=${indexes.mkString(",")}
-       )""".stripMargin
-  }
 }
 
 trait InterestingStats {
@@ -147,5 +156,25 @@ trait InterestingStats {
 
   def indexes: Set[IndexDescriptor]
 
-  def toString(tokens: Tokens): String
+  def translateBetween(tokensBefore: Tokens, tokensAfter: Tokens): InterestingStats
+
+  def toString(tokens: Tokens): String = {
+
+    val y: Option[NameId] => String = tokens.tokenToString
+
+    val labelNames = labels.toSeq.map(x => y(Some(x)))
+    val edgeNames = edges.toSeq.map {
+      case (ll, e, rl) => (y(ll), y(e), y(rl))
+    }
+    val indexes = this.indexes.map {
+      case IndexDescriptor(label, props) => s"${y(Some(label))}(${props.map(p => y(Some(p))).mkString(", ")})"
+    }
+
+    s"""RecordingStatistics(
+       |  interestingLabels=${labelNames.mkString(", ")},
+       |  interestingEdges=${edgeNames.mkString(", ")},
+       |  interestingIndexes=${indexes.mkString(",")}
+       )""".stripMargin
+  }
+
 }

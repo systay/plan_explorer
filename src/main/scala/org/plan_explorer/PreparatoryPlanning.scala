@@ -12,6 +12,7 @@ import org.neo4j.cypher.internal.compiler.v3_3.planner.logical.{ExpressionEvalua
 import org.neo4j.cypher.internal.compiler.v3_3.spi.GraphStatistics
 import org.neo4j.cypher.internal.frontend.v3_3.phases.CompilationPhaseTracer.NO_TRACING
 import org.neo4j.cypher.internal.frontend.v3_3.phases.{BaseState, devNullLogger}
+import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, PropertyKeyId, RelTypeId}
 import org.neo4j.kernel.monitoring.Monitors
 
 object PreparatoryPlanning {
@@ -49,7 +50,10 @@ object PreparatoryPlanning {
     compiler.planPreparedQuery(result, context)
 
     val indexes = metricsFactory._costModel.interestingIndexes.toSet
-    val tokens = Tokens(planContext.labels.toMap, planContext.types.toMap, planContext.propKeys.toMap)
+    val labels = planContext.labels.mapValues(LabelId.apply).toMap
+    val types = planContext.types.mapValues(RelTypeId.apply).toMap
+    val props = planContext.propKeys.mapValues(PropertyKeyId.apply).toMap
+    val tokens = Tokens(labels, types, props)
     (indexes, tokens, planContext.statistics)
   }
 }

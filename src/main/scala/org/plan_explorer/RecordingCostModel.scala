@@ -18,15 +18,15 @@ class RecordingCostModel(inner: CostModel) extends CostModel {
 
     plan.findByAllClass[NodeLogicalLeafPlan].foreach {
       case NodeUniqueIndexSeek(_, LabelToken(_, id), props, _, _) =>
-        interestingIndexes.add(IndexPossibility(id.id, props.map(_.nameId.id)))
+        interestingIndexes.add(IndexPossibility(id, props.map(_.nameId)))
       case NodeIndexSeek(_, LabelToken(_, id), props, _, _) =>
-        interestingIndexes.add(IndexPossibility(id, props.map(_.nameId.id)))
+        interestingIndexes.add(IndexPossibility(id, props.map(_.nameId)))
       case NodeIndexScan(_, LabelToken(_, id), props, _) =>
-        interestingIndexes.add(IndexPossibility(id, Seq(props.nameId.id)))
+        interestingIndexes.add(IndexPossibility(id, Seq(props.nameId)))
       case NodeIndexContainsScan(_, LabelToken(_, id), props, _, _) =>
-        interestingIndexes.add(IndexPossibility(id, Seq(props.nameId.id)))
+        interestingIndexes.add(IndexPossibility(id, Seq(props.nameId)))
       case NodeIndexEndsWithScan(_, LabelToken(_, id), props, _, _) =>
-        interestingIndexes.add(IndexPossibility(id, Seq(props.nameId.id)))
+        interestingIndexes.add(IndexPossibility(id, Seq(props.nameId)))
       case _ =>
     }
 

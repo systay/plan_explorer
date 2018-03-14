@@ -11,7 +11,7 @@ import org.neo4j.cypher.internal.compiler.v3_3.spi.{GraphStatistics, PlanContext
 import org.neo4j.cypher.internal.compiler.v3_3.{IndexDescriptor, defaultUpdateStrategy}
 import org.neo4j.cypher.internal.frontend.v3_3.phases.CompilationPhaseTracer.NO_TRACING
 import org.neo4j.cypher.internal.frontend.v3_3.phases.{BaseState, InternalNotificationLogger, devNullLogger}
-import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
+import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, PropertyKeyId, RelTypeId}
 import org.neo4j.cypher.internal.v3_3.logical.plans.{LogicalPlan, ProcedureSignature, QualifiedName, UserFunctionSignature}
 import org.neo4j.kernel.monitoring.Monitors
 
@@ -80,8 +80,8 @@ object PlanSpaceProducer {
     override def indexesGetForLabel(labelId: Int): Iterator[IndexDescriptor] = apa(labelId, false)
 
     private def apa(labelId: Int, wantedUnique: Boolean) = (indexes collect {
-      case IndexUse(l, props, unique) if unique == wantedUnique && l == labelId =>
-        IndexDescriptor(labelId, props)
+      case IndexUse(l, props, unique) if unique == wantedUnique && l.id == labelId =>
+        IndexDescriptor(LabelId(labelId), props)
     }).iterator
 
     override def indexGet(labelName: String, propertyKeys: Seq[String]): Option[IndexDescriptor] = ???
@@ -106,23 +106,23 @@ object PlanSpaceProducer {
 
     override def notificationLogger(): InternalNotificationLogger = ???
 
-    override def getLabelName(id: Int): String = tokens.reverseLabels(id)
+    override def getLabelName(id: Int): String = tokens.reverseLabels(LabelId(id))
 
     override def getLabelId(labelName: String): Int = getOptLabelId(labelName).get
 
-    override def getOptLabelId(labelName: String): Option[Int] = tokens.labels.get(labelName)
+    override def getOptLabelId(labelName: String): Option[Int] = tokens.labels.get(labelName).map(_.id)
 
-    override def getPropertyKeyName(id: Int): String = tokens.reverseProps(id)
+    override def getPropertyKeyName(id: Int): String = tokens.reverseProps(PropertyKeyId(id))
 
     override def getPropertyKeyId(key: String): Int = getOptPropertyKeyId(key).get
 
-    override def getOptPropertyKeyId(propertyKeyName: String): Option[Int] = tokens.propKeys.get(propertyKeyName)
+    override def getOptPropertyKeyId(propertyKeyName: String): Option[Int] = tokens.propKeys.get(propertyKeyName).map(_.id)
 
-    override def getRelTypeName(id: Int): String = tokens.reverseTypes(id)
+    override def getRelTypeName(id: Int): String = tokens.reverseTypes(RelTypeId(id))
 
     override def getRelTypeId(relType: String): Int = getOptRelTypeId(relType).get
 
-    override def getOptRelTypeId(relType: String): Option[Int] = tokens.types.get(relType)
+    override def getOptRelTypeId(relType: String): Option[Int] = tokens.types.get(relType).map(_.id)
 
     override def procedureSignature(name: QualifiedName): ProcedureSignature = ???
 

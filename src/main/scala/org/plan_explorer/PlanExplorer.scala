@@ -21,7 +21,7 @@ object PlanExplorer {
       storedStatistics.edgeCardinality.mapValues(Static.apply)
 
     def plotIt(): Action = {
-      val result: Array[Array[LogicalPlan]] = PlanSpaceProducer.produce(10, labels, edges, allNodes, baseState, tokens, indexes)
+      val result: Array[Array[LogicalPlan]] = PlanSpaceProducer.produce(50, labels, edges, allNodes, baseState, tokens, indexes)
       val allPlans = new scala.collection.mutable.HashSet[LogicalPlan]()
       for {
         lvl1: Array[LogicalPlan] <- result
