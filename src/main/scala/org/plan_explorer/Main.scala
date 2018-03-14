@@ -42,6 +42,8 @@ object Main {
 
   private def mainMenu(): Action = {
     println()
+    println(s"Current query: \n$query")
+    println()
     Menu(
       ("View current schema & stats", viewState),
       ("Load schema and statistics from database", loadFromDatabase),
@@ -65,7 +67,7 @@ object Main {
     if (storedStats == null)
       println("No stats set")
     else
-      println(interestingStatistics)
+      println(interestingStatistics.toString(knownTokens))
 
     mainMenu()
   }
@@ -114,7 +116,7 @@ object Main {
     println("Please enter query. Single line with . to finish input")
     try {
       val input =
-        if (true)
+        if (false)
           "MATCH (a:A)-[:T]->(b:B) WHERE a.prop1 = 42 RETURN *"
         else
           multiLineInput()

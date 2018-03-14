@@ -3,7 +3,7 @@ package org.plan_explorer
 import org.neo4j.cypher.internal.compiler.v3_3.IndexDescriptor
 import org.neo4j.cypher.internal.compiler.v3_3.spi.{GraphStatistics, PlanContext}
 import org.neo4j.cypher.internal.frontend.v3_3.phases.{InternalNotificationLogger, devNullLogger}
-import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
+import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, NameId, RelTypeId}
 import org.neo4j.cypher.internal.ir.v3_3.{Cardinality, Selectivity}
 import org.neo4j.cypher.internal.v3_3.logical.plans.{ProcedureSignature, QualifiedName, UserFunctionSignature}
 
@@ -120,6 +120,24 @@ class RecordingStatistics extends GraphStatistics with InterestingStats {
     Some(Selectivity(1))
   }
 
+  override def toString(tokens: Tokens) = {
+
+    val y: Option[NameId] => String = tokens.tokenToString
+
+    val labelNames = interestingLabels.toSeq.map(x => y(Some(x)))
+    val edgeNames = interestingEdges.toSeq.map {
+      case (ll, e, rl) => (y(ll), y(e), y(rl))
+    }
+    val indexes = interestingIndexes.map {
+      case IndexDescriptor(label, props) => s"${y(Some(label))}(${props.map(p => y(Some(p))).mkString(", ")})"
+    }
+
+    s"""RecordingStatistics(
+       |  interestingLabels=${labelNames.mkString(", ")},
+       |  interestingEdges=${edgeNames.mkString(", ")},
+       |  interestingIndexes=${indexes.mkString(",")}
+       )""".stripMargin
+  }
 }
 
 trait InterestingStats {
@@ -128,4 +146,6 @@ trait InterestingStats {
   def edges: Set[(Option[LabelId], Option[RelTypeId], Option[LabelId])]
 
   def indexes: Set[IndexDescriptor]
+
+  def toString(tokens: Tokens): String
 }

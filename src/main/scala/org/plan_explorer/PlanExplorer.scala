@@ -70,7 +70,7 @@ object PlanExplorer {
         labels.toSeq.map {
           case (id, statisticsValue) =>
             val action = createMenuOption((newValue: StatisticsValue) => labels = labels + (id -> newValue)) _
-            s"Label :${y(Some(id))} $statisticsValue" -> action
+            s"Label ${y(Some(id))} $statisticsValue" -> action
         }
       val edgeEdits: Seq[(String, () => Action)] =
         edges.toSeq.map {
