@@ -25,18 +25,23 @@ object PlanSpaceProducer {
               indexes: Set[IndexUse]): Array[Array[LogicalPlan]] = {
     val step = 1.0 / steps
     val results: Array[Array[LogicalPlan]] = Array.ofDim[LogicalPlan](steps, steps)
-    for {
-      xStep <- 0 until steps
-      yStep <- 0 until steps
-    } {
-      val x = xStep * step
-      val y = yStep * step
-      val labelStats = labels.mapValues(v => v.evaluate(x, y))
-      val edgeStats = edges.mapValues(v => v.evaluate(x, y))
-      val nodeCount = allNodes.evaluate(x, y)
-      val stats = StoredStatistics(labelStats, nodeCount, edgeStats)
 
-      results(xStep)(yStep) = plan(baseState, stats, tokens, indexes)
+    val xSteps = (0 until steps).par
+    val ySteps = (0 until steps).par
+
+    xSteps foreach {
+      xStep =>
+        ySteps foreach {
+          yStep =>
+            val x = xStep * step
+            val y = yStep * step
+            val labelStats = labels.mapValues(v => v.evaluate(x, y))
+            val edgeStats = edges.mapValues(v => v.evaluate(x, y))
+            val nodeCount = allNodes.evaluate(x, y)
+            val stats = StoredStatistics(labelStats, nodeCount, edgeStats)
+
+            results(xStep)(yStep) = plan(baseState, stats, tokens, indexes)
+        }
     }
 
     results
