@@ -46,9 +46,9 @@ object PlanExplorer {
       def runPlans() = {
         val path = reader.readLine("Path to database: ")
         RunPlans.runThese(path, baseState, allPlans.toSet) foreach {
-          case (lp, ExecutionReport(dbHits)) =>
+          case (lp, ExecutionReport(dbHits, totalIntermediateRows)) =>
             val id = plansWithId(lp)
-            println(s"${asChar(id)} - $dbHits DbHits")
+            println(s"${asChar(id)} - $dbHits DbHits $totalIntermediateRows rows")
         }
         thisMenu
       }
