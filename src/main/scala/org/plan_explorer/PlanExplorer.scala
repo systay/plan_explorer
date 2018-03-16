@@ -1,7 +1,7 @@
 package org.plan_explorer
 
 import org.jline.reader.LineReader
-import org.neo4j.cypher.internal.frontend.v3_3.phases.BaseState
+import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
 import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
 import org.neo4j.cypher.internal.v3_3.logical.plans.LogicalPlan
@@ -13,7 +13,7 @@ object PlanExplorer {
               mainMenu: Action,
               tokens: Tokens,
               indexes: Set[IndexUse],
-              baseState: BaseState): Unit = {
+              baseState: LogicalPlanState): Unit = {
 
     var labels: Map[LabelId, StatisticsValue] = storedStatistics.labelCardinality.mapValues(Static.apply)
     var allNodes: StatisticsValue = Static(storedStatistics.allNodes)
@@ -21,7 +21,7 @@ object PlanExplorer {
       storedStatistics.edgeCardinality.mapValues(Static.apply)
 
     def plotIt(): Action = {
-      val result: Array[Array[LogicalPlan]] = PlanSpaceProducer.produce(50, labels, edges, allNodes, baseState, tokens, indexes)
+      val result: Array[Array[LogicalPlan]] = PlanSpaceProducer.produce(35, labels, edges, allNodes, baseState, tokens, indexes)
       val allPlans = new scala.collection.mutable.HashSet[LogicalPlan]()
       for {
         lvl1: Array[LogicalPlan] <- result
@@ -43,17 +43,29 @@ object PlanExplorer {
         thisMenu
       }
 
-      val showPlanOptions = plansWithId.values.map {
-        case x => s"${asChar(x)}" -> (() => showPlan(x))
-      }.toSeq
+      def runPlans() = {
+        val path = reader.readLine("Path to database: ")
+        RunPlans.runThese(path, baseState, allPlans.toSet) foreach {
+          case (lp, ExecutionReport(dbHits)) =>
+            val id = plansWithId(lp)
+            println(s"${asChar(id)} - $dbHits DbHits")
+        }
+        thisMenu
+      }
 
-      val allOptions = showPlanOptions :+ ("Back", () => mainExplorerMenu())
+      val showPlanOptions = plansWithId.values.toList.sorted.map {
+        x => s"${asChar(x)}" -> (() => showPlan(x))
+      }
+
+      val allOptions =
+        showPlanOptions :+
+          ("Run plans against real database", () => runPlans()) :+
+          ("Back", () => mainExplorerMenu())
 
       thisMenu = Menu(allOptions: _*)
 
       thisMenu
     }
-
 
     def mainExplorerMenu(): Action = {
 
@@ -113,7 +125,7 @@ object PlanExplorer {
     }
   }
 
-  def asChar(i: Int) = ('A' + i).asInstanceOf[Char]
+  def asChar(i: Int): Char = ('A' + i).asInstanceOf[Char]
 
   private def maybeInt(in: String): Option[Int] =
     try {

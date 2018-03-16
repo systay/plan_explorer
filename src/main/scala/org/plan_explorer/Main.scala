@@ -1,17 +1,25 @@
 package org.plan_explorer
 
+import java.time.Clock
+
 import org.jline.reader._
 import org.jline.terminal.{Terminal, TerminalBuilder}
-import org.neo4j.cypher.internal.frontend.v3_3.phases.BaseState
+import org.neo4j.cypher.internal.compatibility.v3_3.WrappedMonitors
+import org.neo4j.cypher.internal.compatibility.v3_3.runtime.CommunityRuntimeContextCreator
+import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
+import org.neo4j.cypher.internal.frontend.v3_3.phases.CompilationPhaseTracer.NO_TRACING
+import org.neo4j.cypher.internal.frontend.v3_3.phases.{CompilationPhases, devNullLogger}
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
 import org.neo4j.kernel.internal.Version
+import org.neo4j.kernel.monitoring.{Monitors => KernelMonitors}
+
 
 object Main {
 
   private var knownTokens: Tokens = _
 
   private var query: String = _
-  private var baseState: BaseState = _
+  private var baseState: LogicalPlanState = _
   private var terminal: Terminal = TerminalBuilder.terminal()
   private var possibleIndexes: Set[IndexPossibility] = _
   private var selectedIndexes: Set[IndexUse] = Set.empty
@@ -19,6 +27,9 @@ object Main {
   private var interestingStatistics: InterestingStats = _
 
   def main(args: Array[String]): Unit = {
+
+    Runtime.getRuntime.exec("clear")
+
     println(
       s"""Welcome to plan explorer!
          |verbose ${java.lang.Boolean.getBoolean("pickBestPlan.VERBOSE")}
@@ -47,7 +58,6 @@ object Main {
     Menu(
       ("View current schema & stats", viewState),
       ("Load schema and statistics from database", loadFromDatabase),
-      //    ("Edit schema and statistics", mainMenu),
       ("Edit indexes", indexMgmt),
       ("Explore plan space", explorePlanSpace),
       ("Change query", enterQuery),
@@ -118,48 +128,26 @@ object Main {
     println("Please enter query. Single line with . to finish input")
     try {
       val input =
-        if (false)
-          """MATCH (countryX:Country {name:{2}}),
-            |      (countryY:Country{name:{3}}),
-            |      (person:Person {id:{1}})
-            |MATCH (city:City)-[:IS_PART_OF]->(country:Country)
-            |WHERE country IN [countryX, countryY]
-            |WITH person, countryX, countryY, collect(city) AS cities
-            |MATCH (person)-[:KNOWS*1..2]-(friend)-[:PERSON_IS_LOCATED_IN]->(city)
-            |WHERE NOT person=friend AND NOT city IN cities
-            |WITH DISTINCT friend, countryX, countryY
-            |MATCH (friend)<-[:POST_HAS_CREATOR|COMMENT_HAS_CREATOR]-(message:Message),
-            |      (message)-[:POST_IS_LOCATED_IN|COMMENT_IS_LOCATED_IN]->(country)
-            |WHERE {5}>message.creationDate>={4} AND
-            |      country IN [countryX, countryY]
-            |WITH friend,
-            |     CASE WHEN country=countryX THEN 1 ELSE 0 END AS messageX,
-            |     CASE WHEN country=countryY THEN 1 ELSE 0 END AS messageY
-            |WITH friend, sum(messageX) AS xCount, sum(messageY) AS yCount
-            |WHERE xCount>0 AND yCount>0
-            |RETURN friend.id AS friendId,
-            |       friend.firstName AS friendFirstName,
-            |       friend.lastName AS friendLastName,
-            |       xCount,
-            |       yCount,
-            |       xCount + yCount AS xyCount
-            |ORDER BY xyCount DESC, friendId ASC
-            |LIMIT {6}
-            |""".stripMargin
+        if (true)
+          """MATCH (a:A)-->(b:B)<--(c:C) RETURN *""".stripMargin
         else
           multiLineInput()
 
       print("parsing, ast-rewriting and semantic analysis")
       val maybeBaseState = ParseAndSemanticAnalysis.parsing_rewriting_and_semantics(input)
+      val monitors = WrappedMonitors(new KernelMonitors)
+      val context = CommunityRuntimeContextCreator.create(NO_TRACING, devNullLogger, null, query, Set.empty, None, monitors, new MyMetricsFactory, null, null, null, Clock.systemUTC(), evaluator = null)
+
+      val finalBaseState = CompilationPhases.lateAstRewriting.transform(maybeBaseState, context).asInstanceOf[LogicalPlanState].copy(maybePeriodicCommit = Some(None))
       println("...")
 
       print("initial planning to find out interesting schema")
-      val (indexes, tokens, recordedStats) = PreparatoryPlanning.plan(input, maybeBaseState)
+      val (indexes, tokens, recordedStats) = PreparatoryPlanning.plan(input, finalBaseState)
       println("...")
 
       // Passed all steps = let's switch to the new values
       this.query = input
-      this.baseState = maybeBaseState
+      this.baseState = finalBaseState
       this.possibleIndexes = indexes
       this.knownTokens = tokens
       this.interestingStatistics = recordedStats

@@ -10,6 +10,7 @@ import org.neo4j.cypher.javacompat.internal.GraphDatabaseCypherService
 import org.neo4j.graphdb.GraphDatabaseService
 import org.neo4j.graphdb.factory.{GraphDatabaseFactory, GraphDatabaseSettings}
 import org.neo4j.kernel.api.KernelTransaction
+import org.neo4j.kernel.api.exceptions.KernelException
 import org.neo4j.kernel.api.security.SecurityContext.AUTH_DISABLED
 import org.neo4j.kernel.impl.coreapi.{InternalTransaction, PropertyContainerLocker}
 import org.neo4j.kernel.impl.query.Neo4jTransactionalContextFactory
@@ -103,16 +104,24 @@ object LoadFromDatabase {
   }
 
   private def getTokensFromDb(tokens: Tokens, planContext: PlanContext) = {
+
+    def trackSource[T](l: String, f: => T): T = try {
+      f
+    } catch {
+      case e: KernelException =>
+        throw new RuntimeException(l, e)
+    }
+
     val labels = tokens.labels.keySet.map {
-      l => l -> LabelId(planContext.getLabelId(l))
+      l => l -> LabelId(trackSource(l, planContext.getLabelId(l)))
     }.toMap
 
     val propKeys = tokens.propKeys.keySet.map {
-      p => p -> PropertyKeyId(planContext.getPropertyKeyId(p))
+      p => p -> PropertyKeyId(trackSource(p, planContext.getPropertyKeyId(p)))
     }.toMap
 
     val types = tokens.types.keySet.map {
-      p => p -> RelTypeId(planContext.getRelTypeId(p))
+      p => p -> RelTypeId(trackSource(p, planContext.getRelTypeId(p)))
     }.toMap
 
     val newTokens = Tokens(labels, types, propKeys)
