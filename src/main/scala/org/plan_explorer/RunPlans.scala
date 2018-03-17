@@ -54,14 +54,16 @@ object RunPlans {
       val execPlans = createExecutionPlans(baseState, plans, cypherService, contextFactory)
       val transactions = new java.util.concurrent.ConcurrentHashMap[InternalTransaction, Unit]()
 
-      new Thread(() => {
-        Thread.sleep(1 * 60 * 1000) // Give queries time to finish
-        println("Killing remaining queries")
-        val iter = transactions.keys()
-        while (iter.hasMoreElements) {
-          val tx = iter.nextElement()
-          tx.close()
-          println("X")
+      new Thread(new Runnable {
+        override def run(): Unit = {
+          Thread.sleep(1 * 60 * 1000) // Give queries 5 minutes to finish
+          println("Killing remaining queries")
+          val iter = transactions.keys()
+          while (iter.hasMoreElements) {
+            val tx = iter.nextElement()
+            tx.close()
+            println("X")
+          }
         }
       }).start()
 
