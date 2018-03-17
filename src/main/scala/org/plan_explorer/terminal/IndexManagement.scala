@@ -1,11 +1,15 @@
-package org.plan_explorer
+package org.plan_explorer.terminal
 
+import org.jline.reader.LineReader
 import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, PropertyKeyId}
-import org.plan_explorer.Main.createReader
 import org.plan_explorer.model.{IndexPossibility, IndexUse, Tokens}
+import org.plan_explorer.terminal.menu.{Action, NumberedMenu}
 
 object IndexManagement {
-  def pickIndexes(input: Set[IndexUse], possible: Set[IndexPossibility], tokens: Tokens): Set[IndexUse] = {
+  def pickIndexes(input: Set[IndexUse],
+                  possible: Set[IndexPossibility],
+                  tokens: Tokens,
+                  createReader: () => LineReader): Set[IndexUse] = {
 
     val indexPossibilities: Seq[IndexPossibility] = possible.toSeq.sortBy(i => i.label + i.props.mkString("|"))
     var current = input
@@ -23,25 +27,25 @@ object IndexManagement {
         s"Remove $idx" -> (() => removeIndexOn(idx.label, idx.props))
       }
 
-      NumberedMenu(newIndexes ++ removeIndexes :+ ("Exit index management" -> (() => Quit)): _*)
+      NumberedMenu(newIndexes ++ removeIndexes :+ ("Exit index management" -> (() => SystemExit)): _*)
     }
 
     def createIndexOn(label: LabelId, props: Seq[PropertyKeyId], unique: Boolean): Action = {
       current = current.filterNot {
-        case x => x.label == label && x.props == props
+        x => x.label == label && x.props == props
       } + IndexUse(label, props, unique)
       menu()
     }
 
     def removeIndexOn(label: LabelId, props: Seq[PropertyKeyId]): Action = {
       current = current.filterNot {
-        case x => x.label == label && x.props == props
+        x => x.label == label && x.props == props
       }
       menu()
     }
 
     var currentAction: Action = menu()
-    while (currentAction != Quit) {
+    while (currentAction != SystemExit) {
       currentAction = currentAction.chooseOptionFromReader(createReader())
     }
 

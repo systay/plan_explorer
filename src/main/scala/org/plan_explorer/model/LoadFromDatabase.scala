@@ -14,6 +14,7 @@ import org.neo4j.kernel.api.exceptions.KernelException
 import org.neo4j.kernel.api.security.SecurityContext.AUTH_DISABLED
 import org.neo4j.kernel.impl.coreapi.{InternalTransaction, PropertyContainerLocker}
 import org.neo4j.kernel.impl.query.Neo4jTransactionalContextFactory
+import org.neo4j.kernel.impl.query.clientconnection.ClientConnectionInfo
 import org.neo4j.kernel.internal.GraphDatabaseAPI
 import org.neo4j.values.virtual.VirtualValues.EMPTY_MAP
 import org.plan_explorer.model
@@ -133,7 +134,13 @@ object LoadFromDatabase {
                                 tx: InternalTransaction): PlanContext = {
     val queryService = new GraphDatabaseCypherService(dbService)
     val contextFactory = Neo4jTransactionalContextFactory.create(queryService, new PropertyContainerLocker)
-    val context = contextFactory.newContext(ConnectionInfo, tx, query, EMPTY_MAP)
+    val context = contextFactory.newContext(connectionInfo, tx, query, EMPTY_MAP)
     new TransactionBoundPlanContext(TransactionalContextWrapper(context), devNullLogger)
+  }
+
+  val connectionInfo = new ClientConnectionInfo {
+    override def protocol(): String = "w00t"
+
+    override def asConnectionDetails(): String = "w00t"
   }
 }

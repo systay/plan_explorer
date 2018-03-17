@@ -1,4 +1,4 @@
-package org.plan_explorer
+package org.plan_explorer.terminal
 
 import java.io.File
 import java.time.Clock

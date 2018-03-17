@@ -1,12 +1,12 @@
-package org.plan_explorer
+package org.plan_explorer.terminal
 
 import org.jline.reader.LineReader
 import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
 import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
 import org.neo4j.cypher.internal.v3_3.logical.plans.LogicalPlan
-import org.plan_explorer.Main._
 import org.plan_explorer.model._
+import org.plan_explorer.terminal.menu.{Action, Menu, NumberedMenu}
 
 object PlanExplorer {
   def explore(reader: LineReader,
@@ -14,7 +14,8 @@ object PlanExplorer {
               mainMenu: Action,
               tokens: Tokens,
               indexes: Set[IndexUse],
-              baseState: LogicalPlanState): Unit = {
+              baseState: LogicalPlanState,
+              createReader: () => LineReader): Unit = {
 
     var labels: Map[LabelId, StatisticsValue] = storedStatistics.labelCardinality.mapValues(Static.apply)
     var allNodes: StatisticsValue = Static(storedStatistics.allNodes)
@@ -105,13 +106,13 @@ object PlanExplorer {
         }
       val allNodeEdit = s"All Nodes count: $allNodes" -> createMenuOption(allNodes = _) _
       val plot: (String, () => Action) = "Plot plan space" -> (() => plotIt())
-      val exit: (String, () => Action) = "Exit!" -> (() => Quit)
+      val exit: (String, () => Action) = "Exit!" -> (() => SystemExit)
       NumberedMenu(labelEdits ++ edgeEdits :+ allNodeEdit :+ plot :+ exit: _*)
     }
 
     var current: Action = mainExplorerMenu()
 
-    while (current != Quit) {
+    while (current != SystemExit) {
       current = current.chooseOptionFromReader(createReader())
     }
   }
