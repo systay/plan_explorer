@@ -1,4 +1,4 @@
-package org.plan_explorer
+package org.plan_explorer.model
 
 import java.io.File
 import java.util.concurrent.TimeUnit

@@ -1,4 +1,4 @@
-package org.plan_explorer
+package org.plan_explorer.model
 
 import org.neo4j.cypher.internal.frontend.v3_3.LabelId
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality

@@ -12,6 +12,7 @@ import org.neo4j.cypher.internal.frontend.v3_3.phases.{CompilationPhases, devNul
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
 import org.neo4j.kernel.internal.Version
 import org.neo4j.kernel.monitoring.{Monitors => KernelMonitors}
+import org.plan_explorer.model._
 
 
 object Main {
@@ -129,14 +130,11 @@ object Main {
     try {
       val input =
         if (true)
-          """MATCH (o1:Officer)-[r1]->(e:Entity)<-[r2]-(o2:Officer)
-            |WHERE id(o1) < id(o2)
-            |AND size( (o1)-->() ) > 2 AND size( (o2)-->() ) > 2
-            |WITH o1,o2,count(*) as freq, collect(e.name)[0..10] as entities
-            |WHERE freq > 2
-            |RETURN o1.name, o2.name, freq, entities
-            |ORDER BY freq DESC
-            |LIMIT 10""".stripMargin
+          """MATCH (a:A)-->(x:X),
+            |      (a:B)-->(x:X),
+            |      (a:C)-->(x:X)
+            |RETURN *
+          """.stripMargin
         else
           multiLineInput()
 

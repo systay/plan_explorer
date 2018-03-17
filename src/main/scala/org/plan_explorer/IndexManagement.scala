@@ -2,6 +2,7 @@ package org.plan_explorer
 
 import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, PropertyKeyId}
 import org.plan_explorer.Main.createReader
+import org.plan_explorer.model.{IndexPossibility, IndexUse, Tokens}
 
 object IndexManagement {
   def pickIndexes(input: Set[IndexUse], possible: Set[IndexPossibility], tokens: Tokens): Set[IndexUse] = {
@@ -47,17 +48,4 @@ object IndexManagement {
     current
   }
 
-}
-
-case class IndexUse(label: LabelId, props: Seq[PropertyKeyId], unique: Boolean) {
-  def toString(tokens: Tokens): String = {
-    val uniqueS = if (unique) "UNIQUE " else ""
-    val labelName = tokens.reverseLabels(label)
-    val propNames = props.map(tokens.reverseProps).mkString(", ")
-    s"${uniqueS}INDEX ON :$labelName($propNames)"
-  }
-}
-
-case class IndexPossibility(label: LabelId, props: Seq[PropertyKeyId]) {
-  def toString(tokens: Tokens): String = s"(:$label {${props.mkString(",")}})"
 }

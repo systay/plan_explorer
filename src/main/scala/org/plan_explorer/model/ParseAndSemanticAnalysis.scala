@@ -1,4 +1,4 @@
-package org.plan_explorer
+package org.plan_explorer.model
 
 import java.time.Clock
 
@@ -23,12 +23,12 @@ object ParseAndSemanticAnalysis {
     nonIndexedLabelWarningThreshold = 1000)
 
   def parsing_rewriting_and_semantics(query: String): BaseState = {
-    val compiler: CypherCompiler[CommunityRuntimeContext] = createCompiler
+    val compiler: CypherCompiler[CommunityRuntimeContext] = createCompiler()
 
     compiler.parseQuery(query, query, devNullLogger, "COST", Set.empty, None, NO_TRACING)
   }
 
-  def createCompiler = new CypherCompilerFactory().costBasedCompiler(
+  def createCompiler(): CypherCompiler[CommunityRuntimeContext] = new CypherCompilerFactory().costBasedCompiler(
     config,
     Clock.systemDefaultZone(),
     WrappedMonitors(new Monitors),

@@ -1,4 +1,4 @@
-package org.plan_explorer
+package org.plan_explorer.model
 
 import java.time.Clock
 
@@ -75,7 +75,7 @@ object PlanSpaceProducer {
       clock = Clock.systemDefaultZone(),
       evaluator = simpleExpressionEvaluator)
 
-    val compiler = ParseAndSemanticAnalysis.createCompiler
+    val compiler = ParseAndSemanticAnalysis.createCompiler()
     val result = compiler.normalizeQuery(baseState, context)
     val planState = compiler.planPreparedQuery(result, context)
     planState.logicalPlan

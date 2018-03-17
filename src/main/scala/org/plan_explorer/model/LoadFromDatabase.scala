@@ -1,4 +1,4 @@
-package org.plan_explorer
+package org.plan_explorer.model
 
 import java.io.File
 
@@ -14,9 +14,9 @@ import org.neo4j.kernel.api.exceptions.KernelException
 import org.neo4j.kernel.api.security.SecurityContext.AUTH_DISABLED
 import org.neo4j.kernel.impl.coreapi.{InternalTransaction, PropertyContainerLocker}
 import org.neo4j.kernel.impl.query.Neo4jTransactionalContextFactory
-import org.neo4j.kernel.impl.query.clientconnection.ClientConnectionInfo
 import org.neo4j.kernel.internal.GraphDatabaseAPI
 import org.neo4j.values.virtual.VirtualValues.EMPTY_MAP
+import org.plan_explorer.model
 
 object LoadFromDatabase {
 
@@ -46,7 +46,7 @@ object LoadFromDatabase {
       val newIndexes = getIndexes(newTokens, planContext)
       val statistics = loadStatistics(oldTokens, newTokens, recordingStatistics, planContext)
 
-      StateFromDb(newIndexes, statistics, newTokens)
+      model.StateFromDb(newIndexes, statistics, newTokens)
     } finally {
       dbService.shutdown()
     }
@@ -136,12 +136,4 @@ object LoadFromDatabase {
     val context = contextFactory.newContext(ConnectionInfo, tx, query, EMPTY_MAP)
     new TransactionBoundPlanContext(TransactionalContextWrapper(context), devNullLogger)
   }
-}
-
-case class StateFromDb(indexes: Set[IndexUse], statistics: StoredStatistics, tokens: Tokens)
-
-object ConnectionInfo extends ClientConnectionInfo {
-  override def protocol(): String = "w00t"
-
-  override def asConnectionDetails(): String = "w00t"
 }

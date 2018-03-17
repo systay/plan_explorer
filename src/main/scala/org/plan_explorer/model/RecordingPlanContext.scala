@@ -1,4 +1,4 @@
-package org.plan_explorer
+package org.plan_explorer.model
 
 import org.neo4j.cypher.internal.compiler.v3_3.IndexDescriptor
 import org.neo4j.cypher.internal.compiler.v3_3.spi.{GraphStatistics, PlanContext}
@@ -6,6 +6,7 @@ import org.neo4j.cypher.internal.frontend.v3_3.phases.{InternalNotificationLogge
 import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, NameId, RelTypeId}
 import org.neo4j.cypher.internal.ir.v3_3.{Cardinality, Selectivity}
 import org.neo4j.cypher.internal.v3_3.logical.plans.{ProcedureSignature, QualifiedName, UserFunctionSignature}
+import org.plan_explorer.model
 
 import scala.collection.mutable
 
@@ -63,12 +64,6 @@ class RecordingPlanContext extends PlanContext {
     labels.getOrElseUpdate(labelName, nextToken())
   }
 
-  private def nextToken() = {
-    val id = tokenCounter
-    tokenCounter += 1
-    id
-  }
-
   override def getPropertyKeyName(id: Int): String = propKeys.find(p => p._2 == id).get._1
 
   override def getOptPropertyKeyId(propertyKeyName: String): Option[Int] =
@@ -76,6 +71,12 @@ class RecordingPlanContext extends PlanContext {
 
   override def getPropertyKeyId(propertyKeyName: String): Int = {
     propKeys.getOrElseUpdate(propertyKeyName, nextToken())
+  }
+
+  private def nextToken() = {
+    val id = tokenCounter
+    tokenCounter += 1
+    id
   }
 
   override def getRelTypeName(id: Int): String = types.find(p => p._2 == id).get._1
@@ -108,7 +109,7 @@ case class InterestingStatsImpl(labels: Set[LabelId],
         IndexDescriptor(newL, newProps)
     }
 
-    InterestingStatsImpl(labels, edges, indexes)
+    model.InterestingStatsImpl(labels, edges, indexes)
   }
 
 }

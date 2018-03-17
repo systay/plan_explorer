@@ -6,6 +6,7 @@ import org.neo4j.cypher.internal.frontend.v3_3.{LabelId, RelTypeId}
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
 import org.neo4j.cypher.internal.v3_3.logical.plans.LogicalPlan
 import org.plan_explorer.Main._
+import org.plan_explorer.model._
 
 object PlanExplorer {
   def explore(reader: LineReader,
