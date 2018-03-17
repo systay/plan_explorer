@@ -129,7 +129,14 @@ object Main {
     try {
       val input =
         if (true)
-          """MATCH (a:A)-->(b:B)<--(c:C) RETURN *""".stripMargin
+          """MATCH (o1:Officer)-[r1]->(e:Entity)<-[r2]-(o2:Officer)
+            |WHERE id(o1) < id(o2)
+            |AND size( (o1)-->() ) > 2 AND size( (o2)-->() ) > 2
+            |WITH o1,o2,count(*) as freq, collect(e.name)[0..10] as entities
+            |WHERE freq > 2
+            |RETURN o1.name, o2.name, freq, entities
+            |ORDER BY freq DESC
+            |LIMIT 10""".stripMargin
         else
           multiLineInput()
 

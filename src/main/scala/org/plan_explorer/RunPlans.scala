@@ -6,7 +6,7 @@ import java.time.Clock
 import org.neo4j.cypher.internal.InternalExecutionResult
 import org.neo4j.cypher.internal.compatibility.v3_3.WrappedMonitors
 import org.neo4j.cypher.internal.compatibility.v3_3.runtime.executionplan.ExecutionPlan
-import org.neo4j.cypher.internal.compatibility.v3_3.runtime.helpers.simpleExpressionEvaluator
+import org.neo4j.cypher.internal.compatibility.v3_3.runtime.helpers.{ValueConversion, simpleExpressionEvaluator}
 import org.neo4j.cypher.internal.compatibility.v3_3.runtime.{CommunityRuntimeBuilder, CommunityRuntimeContext, CommunityRuntimeContextCreator, ProfileMode}
 import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
 import org.neo4j.cypher.internal.compiler.v3_3.planner.logical.{ExpressionEvaluator, MetricsFactory, QueryGraphSolver, SimpleMetricsFactory}
@@ -22,11 +22,10 @@ import org.neo4j.cypher.javacompat.internal.GraphDatabaseCypherService
 import org.neo4j.graphdb.factory.{GraphDatabaseFactory, GraphDatabaseSettings}
 import org.neo4j.kernel.api.KernelTransaction
 import org.neo4j.kernel.api.security.SecurityContext.AUTH_DISABLED
-import org.neo4j.kernel.impl.coreapi.PropertyContainerLocker
+import org.neo4j.kernel.impl.coreapi.{InternalTransaction, PropertyContainerLocker}
 import org.neo4j.kernel.impl.query.clientconnection.ClientConnectionInfo.EMBEDDED_CONNECTION
 import org.neo4j.kernel.impl.query.{Neo4jTransactionalContextFactory, TransactionalContextFactory}
 import org.neo4j.kernel.monitoring.{Monitors => KernelMonitors}
-import org.neo4j.values.virtual.VirtualValues
 import org.neo4j.values.virtual.VirtualValues.EMPTY_MAP
 
 case class ExecutionReport(dbHits: Int, totalIntermediateRows: Int)
@@ -48,28 +47,50 @@ object RunPlans {
       setConfig(GraphDatabaseSettings.read_only, "true").
       newGraphDatabase()
 
-    try {
+    (try {
 
       val cypherService = new GraphDatabaseCypherService(dbService)
       val contextFactory = Neo4jTransactionalContextFactory.create(cypherService, new PropertyContainerLocker)
       val execPlans = createExecutionPlans(baseState, plans, cypherService, contextFactory)
+      val transactions = new java.util.concurrent.ConcurrentHashMap[InternalTransaction, Unit]()
 
-      execPlans map {
+      new Thread(() => {
+        Thread.sleep(1 * 60 * 1000) // Give queries time to finish
+        println("Killing remaining queries")
+        val iter = transactions.keys()
+        while (iter.hasMoreElements) {
+          val tx = iter.nextElement()
+          tx.close()
+          println("X")
+        }
+      }).start()
+
+      execPlans.par map {
         case (lp, execPlan) =>
           val tx = cypherService.beginTransaction(KernelTransaction.Type.`implicit`, AUTH_DISABLED)
+          transactions.put(tx, {})
           try {
             val txContext = contextFactory.newContext(EMBEDDED_CONNECTION, tx, baseState.queryText, EMPTY_MAP)
             val queryContext = new TransactionBoundQueryContext(TransactionalContextWrapper(txContext))(NullSearchMonitor)
-            val result = execPlan.run(queryContext, ProfileMode, VirtualValues.EMPTY_MAP)
-            emptyResults(result)
+            val extractedParams: Map[String, Any] = baseState.maybeExtractedParams.getOrElse(Map.empty)
 
-            val dbHits = result.executionPlanDescription().totalDbHits.get.toInt
-            val allIntermediateRows = result.executionPlanDescription().flatten.map {
-              x =>
-                val map = x.getArguments()
-                map.get("Rows").asInstanceOf[Long]
-            }.sum.toInt
-            (lp, ExecutionReport(dbHits, allIntermediateRows))
+            try {
+              val result = execPlan.run(queryContext, ProfileMode, ValueConversion.asValues(extractedParams))
+
+              emptyResults(result)
+
+              val dbHits = result.executionPlanDescription().totalDbHits.get.toInt
+              val allIntermediateRows = result.executionPlanDescription().flatten.map {
+                x =>
+                  val map = x.getArguments()
+                  map.get("Rows").asInstanceOf[Long]
+              }.sum.toInt
+              (lp, ExecutionReport(dbHits, allIntermediateRows))
+            } catch {
+              case e: Throwable =>
+                println(e.getClass)
+                (lp, ExecutionReport(0, 0))
+            }
           } finally {
             tx.success()
             tx.close()
@@ -77,17 +98,11 @@ object RunPlans {
       }
     } finally {
       dbService.shutdown()
-    }
+    }).seq
   }
 
-  private def emptyResults(result: InternalExecutionResult) = {
+  private def emptyResults(result: InternalExecutionResult): Unit = {
     while (result.nonEmpty) result.next()
-  }
-
-  object NullSearchMonitor extends IndexSearchMonitor {
-    override def indexSeek(index: IndexDescriptor, values: Seq[Any]): Unit = {}
-
-    override def lockingUniqueIndexSeek(index: IndexDescriptor, values: Seq[Any]): Unit = {}
   }
 
   private def createExecutionPlans(baseState: LogicalPlanState,
@@ -140,6 +155,12 @@ object RunPlans {
       updateStrategy = updateStrategy,
       clock = clock,
       evaluator = evaluator)
+  }
+
+  object NullSearchMonitor extends IndexSearchMonitor {
+    override def indexSeek(index: IndexDescriptor, values: Seq[Any]): Unit = {}
+
+    override def lockingUniqueIndexSeek(index: IndexDescriptor, values: Seq[Any]): Unit = {}
   }
 
 }
