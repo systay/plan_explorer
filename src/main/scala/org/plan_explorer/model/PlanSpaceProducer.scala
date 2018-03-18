@@ -89,13 +89,24 @@ object PlanSpaceProducer {
         IndexDescriptor(LabelId(labelId), props)
     }).iterator
 
-    override def indexGet(labelName: String, propertyKeys: Seq[String]): Option[IndexDescriptor] = ???
+    override def indexGet(labelName: String, propertyKeys: Seq[String]): Option[IndexDescriptor] =
+      _indexGet(labelName, propertyKeys, isUnique = false)
+
+    private def _indexGet(labelName: String, propertyKeys: Seq[String], isUnique: Boolean) = indexes.collectFirst {
+      case IndexUse(label, props, unique)
+        if tokens.reverseLabels(label) == labelName &&
+          props.map(tokens.reverseProps) == propertyKeys &&
+          isUnique == unique =>
+        IndexDescriptor(label, props)
+    }
+
+    override def uniqueIndexGet(labelName: String, propertyKeys: Seq[String]): Option[IndexDescriptor] =
+      _indexGet(labelName, propertyKeys, isUnique = true)
 
     override def indexExistsForLabel(labelName: String): Boolean = ???
 
     override def uniqueIndexesGetForLabel(labelId: Int): Iterator[IndexDescriptor] = apa(labelId, wantedUnique = true)
 
-    override def uniqueIndexGet(labelName: String, propertyKey: Seq[String]): Option[IndexDescriptor] = ???
 
     override def hasPropertyExistenceConstraint(labelName: String, propertyKey: String): Boolean = ???
 

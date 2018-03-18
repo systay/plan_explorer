@@ -10,6 +10,8 @@ case class StoredStatistics(labelCardinality: Map[LabelId, Cardinality],
                             edgeCardinality: Map[(Option[LabelId], Option[RelTypeId], Option[LabelId]), Cardinality])
   extends GraphStatistics {
 
+  def asInterestingStats = InterestingStatsImpl(labelCardinality.keySet, edgeCardinality.keySet, Set.empty)
+
   override def nodesWithLabelCardinality(labelId: Option[LabelId]): Cardinality =
     if (labelId.isEmpty)
       allNodes

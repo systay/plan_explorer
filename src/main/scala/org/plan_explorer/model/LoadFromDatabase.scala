@@ -10,7 +10,6 @@ import org.neo4j.cypher.javacompat.internal.GraphDatabaseCypherService
 import org.neo4j.graphdb.GraphDatabaseService
 import org.neo4j.graphdb.factory.{GraphDatabaseFactory, GraphDatabaseSettings}
 import org.neo4j.kernel.api.KernelTransaction
-import org.neo4j.kernel.api.exceptions.KernelException
 import org.neo4j.kernel.api.security.SecurityContext.AUTH_DISABLED
 import org.neo4j.kernel.impl.coreapi.{InternalTransaction, PropertyContainerLocker}
 import org.neo4j.kernel.impl.query.Neo4jTransactionalContextFactory
@@ -104,25 +103,38 @@ object LoadFromDatabase {
     newIndexes
   }
 
-  private def getTokensFromDb(tokens: Tokens, planContext: PlanContext) = {
+  private def getTokensFromDb(oldTokens: Tokens, planContext: PlanContext) = {
 
-    def trackSource[T](l: String, f: => T): T = try {
-      f
-    } catch {
-      case e: KernelException =>
-        throw new RuntimeException(l, e)
+    val maybeLabels = oldTokens.labels.keySet.map {
+      l => l -> planContext.getOptLabelId(l)
     }
 
-    val labels = tokens.labels.keySet.map {
-      l => l -> LabelId(trackSource(l, planContext.getLabelId(l)))
+    val maybePropKeys = oldTokens.propKeys.keySet.map {
+      p => p -> planContext.getOptPropertyKeyId(p)
+    }
+
+    val maybeTypes = oldTokens.types.keySet.map {
+      p => p -> planContext.getOptRelTypeId(p)
+    }
+
+    val existingTokens = maybeLabels.flatMap(_._2) ++ maybePropKeys.flatMap(_._2) ++ maybeTypes.flatMap(_._2)
+    var highestToken = if (existingTokens.isEmpty) 0 else existingTokens.max
+
+    def nextToken = {
+      highestToken = highestToken + 1
+      highestToken
+    }
+
+    val labels = maybeLabels.map {
+      case (name, maybeToken) => name -> LabelId(maybeToken.getOrElse(nextToken))
     }.toMap
 
-    val propKeys = tokens.propKeys.keySet.map {
-      p => p -> PropertyKeyId(trackSource(p, planContext.getPropertyKeyId(p)))
+    val types = maybeTypes.map {
+      case (name, maybeToken) => name -> RelTypeId(maybeToken.getOrElse(nextToken))
     }.toMap
 
-    val types = tokens.types.keySet.map {
-      p => p -> RelTypeId(trackSource(p, planContext.getRelTypeId(p)))
+    val propKeys = maybePropKeys.map {
+      case (name, maybeToken) => name -> PropertyKeyId(maybeToken.getOrElse(nextToken))
     }.toMap
 
     val newTokens = Tokens(labels, types, propKeys)

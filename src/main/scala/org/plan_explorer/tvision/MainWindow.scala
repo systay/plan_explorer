@@ -17,8 +17,8 @@ class MainWindow(app: TApplication)
   private val statisticsPointer = new StatisticsPointer()
 
   // Widgets
-  private val queryTest = new TEditorWidget(this, q, 0, 0, 42, 10)
-  private val stats = new StatisticsWidget(this, 0, 13, 42, 10, statisticsPointer, () => statsHaveBeenUpdated())
+  private val queryText = new TEditorWidget(this, q, 1, 1, 42, 10)
+  private val stats = new StatisticsWidget(this, 1, 13, 42, 10, statisticsPointer, () => statsHaveBeenUpdated())
   private var queryPlanLabels = Seq.empty[TLabel]
 
   // State
@@ -28,17 +28,22 @@ class MainWindow(app: TApplication)
   private var selectedIndexes: Set[IndexUse] = Set.empty
   private var interestingStatistics: InterestingStats = _
   private var currentPlan: LogicalPlan = SingleRow()(null)
+  private var currentDb: Option[String] = None
 
   // Initiliaze
   maximize()
-  addButton("Update plan with query", 1, 11, () => planQuery())
-  planQuery()
+  addButton("Update plan with query", 1, 11, () => planQueryToFigureOutStats())
+  planQueryToFigureOutStats()
+
+  addButton("Use database", 44, 1, () => useDb())
 
   private def q =
-    """MATCH (a:A)-[:T]->(b:B)
+    """MATCH (o:Officer)-->(e:Entity)-[:INTERMEDIARY_OF]-(i:Intermediary)
+      |WHERE o.name CONTAINS "Ross"
+      |MATCH (e)--(o2:Officer)
       |RETURN *""".stripMargin
 
-  private def planQuery(): Unit = {
+  private def planQueryToFigureOutStats(): Unit = {
     this.query = getQueryText()
     val (
       indexes: Set[IndexPossibility],
@@ -49,6 +54,10 @@ class MainWindow(app: TApplication)
     this.possibleIndexes = indexes
     this.interestingStatistics = recordedStats
     this.baseState = baseState
+    planQueryAfterUpdatedStats()
+  }
+
+  private def planQueryAfterUpdatedStats(): Unit = {
     stats.update()
     statsHaveBeenUpdated()
   }
@@ -56,9 +65,28 @@ class MainWindow(app: TApplication)
   private def getQueryText(): String = {
     // There has got to be a better way of doing this...
     val tempFile = File.createTempFile("plan_explorer", ".cypher")
-    queryTest.saveToFilename(tempFile.getAbsolutePath)
+    queryText.saveToFilename(tempFile.getAbsolutePath)
     val query = Source.fromFile(tempFile).getLines().mkString("\n")
     query
+  }
+
+  private def useDb(): Unit = {
+    val i = new TInputBox(app, "Load Statistics From Database", "Path", "/home/systay/panama")
+    println(i.getText)
+    val dir = i.getText
+    if (dir != null) {
+      try {
+        val cx: StateFromDb = LoadFromDatabase.loadFromDatabase(dir, query, statisticsPointer.tokens, statisticsPointer.storedStatistics.asInterestingStats)
+        currentDb = Some(dir)
+        statisticsPointer.setNewState(cx.statistics, cx.tokens)
+        stats.update()
+        planQueryAfterUpdatedStats()
+      } catch {
+        case e: RuntimeException =>
+          e.printStackTrace()
+          app.messageBox("Error!", e.getMessage)
+      }
+    }
   }
 
   private def statsHaveBeenUpdated(): Unit = {
