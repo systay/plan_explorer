@@ -71,7 +71,7 @@ object PlanExplorer {
 
     def mainExplorerMenu(): Action = {
 
-      val y = tokens.tokenToString _
+      val y = tokens.maybeTokenToString _
 
       def createMenuOption(updater: StatisticsValue => Unit)(): Action = {
         val input = reader.readLine(

@@ -161,7 +161,7 @@ trait InterestingStats {
 
   def toString(tokens: Tokens): String = {
 
-    val y: Option[NameId] => String = tokens.tokenToString
+    val y: Option[NameId] => String = tokens.maybeTokenToString
 
     val labelNames = labels.toSeq.map(x => y(Some(x)))
     val edgeNames = edges.toSeq.map {

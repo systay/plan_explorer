@@ -29,7 +29,7 @@ case class StoredStatistics(labelCardinality: Map[LabelId, Cardinality],
 
   def toString(tokens: Tokens): String = {
 
-    val y = tokens.tokenToString _
+    val y = tokens.maybeTokenToString _
 
     val labels = labelCardinality.map {
       case (id, card) => s"  :${tokens.reverseLabels(id)} ${card.amount}"
@@ -50,4 +50,14 @@ case class StoredStatistics(labelCardinality: Map[LabelId, Cardinality],
        |$edges
        |""".stripMargin
   }
+}
+
+object StoredStatistics {
+  def apply(in: InterestingStats): StoredStatistics = {
+    val labels = in.labels.map(l => l -> Cardinality(0)).toMap
+    val edges = in.edges.map(e => e -> Cardinality(0)).toMap
+    new StoredStatistics(labels, Cardinality(0), edges)
+  }
+
+  def empty: StoredStatistics = new StoredStatistics(Map.empty, Cardinality(0), Map.empty)
 }

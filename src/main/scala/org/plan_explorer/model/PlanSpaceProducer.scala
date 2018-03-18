@@ -47,7 +47,7 @@ object PlanSpaceProducer {
     results
   }
 
-  private def plan(baseState: BaseState, stats: GraphStatistics, tokens: Tokens, indexes: Set[IndexUse]): LogicalPlan = {
+  def plan(baseState: BaseState, stats: GraphStatistics, tokens: Tokens, indexes: Set[IndexUse]): LogicalPlan = {
 
     val config = ParseAndSemanticAnalysis.config
     val monitors = WrappedMonitors(new Monitors)

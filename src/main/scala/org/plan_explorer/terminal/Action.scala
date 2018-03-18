@@ -9,6 +9,3 @@ case object SystemExit extends Action {
     this
   }
 }
-
-
-
