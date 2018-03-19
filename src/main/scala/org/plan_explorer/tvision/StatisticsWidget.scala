@@ -3,7 +3,7 @@ package org.plan_explorer.tvision
 import jexer.{TScrollableWidget, TWidget}
 import org.neo4j.cypher.internal.frontend.v3_3.LabelId
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
-import org.plan_explorer.model.{StoredStatistics, Tokens}
+import org.plan_explorer.model.StoredStatistics
 
 class StatisticsWidget(parent: TWidget,
                        x: Int,
@@ -16,7 +16,7 @@ class StatisticsWidget(parent: TWidget,
 
   val DIVIDER = 25
 
-  def update(): Unit = {
+  def showNewStatistics(): Unit = {
     this.getChildren.clear()
     var row = 0
 
@@ -48,24 +48,6 @@ class StatisticsWidget(parent: TWidget,
     }
   }
 
-}
-
-class StatisticsPointer() {
-  private var _storedStatistics = StoredStatistics.empty
-  private var _tokens = Tokens.empty
-
-  def storedStatistics: StoredStatistics = _storedStatistics
-
-  def tokens: Tokens = _tokens
-
-  def setNewState(storedStatistics: StoredStatistics, tokens: Tokens): Unit = {
-    this._storedStatistics = storedStatistics
-    this._tokens = tokens
-  }
-
-  def setNewState(storedStatistics: StoredStatistics): Unit = {
-    this._storedStatistics = storedStatistics
-  }
 }
 
 // Field that only accepts numbers as input
