@@ -1,9 +1,11 @@
 package org.plan_explorer.tvision
 
-import jexer.{TScrollableWidget, TWidget}
+import jexer.{TCheckbox, TScrollableWidget, TWidget}
 import org.neo4j.cypher.internal.frontend.v3_3.LabelId
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
 import org.plan_explorer.model.StoredStatistics
+
+import scala.util.Try
 
 class StatisticsWidget(parent: TWidget,
                        x: Int,
@@ -14,18 +16,29 @@ class StatisticsWidget(parent: TWidget,
                        onUpdatedStats: () => Unit)
   extends TScrollableWidget(parent, x, y, width, height) {
 
-  val DIVIDER = 25
+  val DIVIDER = 40
+
+  // State
+  private var fields = new collection.mutable.ArrayBuffer[StatisticValue]()
 
   def showNewStatistics(): Unit = {
     this.getChildren.clear()
+    this.fields.clear()
     var row = 0
 
     def addField(name: String, startValue: Cardinality, updatedStats: Long => StoredStatistics): Unit = {
       val pos: Int = Math.max(DIVIDER - name.length, 0)
-
-      addLabel(name, pos, row)
-
-      new TNumberField(this, DIVIDER + 2, row, 10, false, startValue.amount.toLong, i => pointer.setNewState(updatedStats(i)), onUpdatedStats)
+      val checkBox: TCheckbox = addCheckbox(pos, row, name, false)
+      val field = new TNumberField(
+        parent = this,
+        x = DIVIDER + 4,
+        y = row,
+        width = 10,
+        fixed = false,
+        initialValue = startValue.amount.toLong,
+        onUpdate = i => pointer.setNewState(updatedStats(i)),
+        onEnter = onUpdatedStats)
+      fields.append(new StatisticValue(checkBox, Try(field.getText.toLong).toOption, field.setNewValue))
       row = row + 1
     }
 
@@ -46,6 +59,31 @@ class StatisticsWidget(parent: TWidget,
         val name = s"(${f(fromLabel)})-[${f(relType)}]->(${f(toLabel)})"
         addField(name, cardinality, i => stats.copy(edgeCardinality = stats.edgeCardinality + (key -> Cardinality(i))))
     }
+
+    import JexerScalaHelpers._
+
+    addButton("x0.1", 1, row, () => updateFieldsWith(_ / 10))
+    addButton("x0.5", 10, row, () => updateFieldsWith(_ / 2))
+    addButton("x2", 20, row, () => updateFieldsWith(_ * 2))
+    addButton("x10", 30, row, () => updateFieldsWith(_ * 10))
+
+  }
+
+  private def updateFieldsWith(f: Long => Long) =
+    for {
+      field <- fields if field.isChecked
+      currentValue <- field.currentValue
+      newValue = f(currentValue)
+    } {
+      field.setNewValue(newValue)
+    }
+
+  class StatisticValue(checkbox: TCheckbox, current: => Option[Long], newValue: Long => Unit) {
+    def isChecked: Boolean = checkbox.isChecked
+
+    def currentValue = current
+
+    def setNewValue(in: Long) = newValue(in)
   }
 
 }
@@ -56,12 +94,18 @@ class TNumberField(parent: TWidget,
                    y: Int,
                    width: Int,
                    fixed: Boolean,
-                   initalValue: Long,
+                   initialValue: Long,
                    onUpdate: Long => Unit,
                    onEnter: () => Unit)
-  extends jexer.TField(parent, x, y, width, fixed, initalValue.toString) {
+  extends jexer.TField(parent, x, y, width, fixed, initialValue.toString) {
 
   import JexerScalaHelpers.function2action
+
+  def setNewValue(value: Long) = {
+    setText(value.toString)
+    onUpdate(value)
+    onEnter()
+  }
 
   this.enterAction = () => {
     onEnter()
