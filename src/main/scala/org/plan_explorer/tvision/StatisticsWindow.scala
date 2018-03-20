@@ -1,14 +1,15 @@
 package org.plan_explorer.tvision
 
 import jexer._
+import jexer.event.TResizeEvent
 import org.plan_explorer.model.{LoadFromDatabase, StateFromDb}
 import org.plan_explorer.tvision.JexerScalaHelpers._
 
 class StatisticsWindow(app: TApplication, statisticsPointer: StatisticsPointer, spi: StatisticsWindowSPI)
-  extends TWindow(app, "Statistics", 80, 80, TWindow.NOCLOSEBOX | TWindow.RESIZABLE) {
+  extends TWindow(app, "Statistics", 80, 20, TWindow.NOCLOSEBOX | TWindow.RESIZABLE) {
 
   // Widgets
-  private val stats = new StatisticsWidget(this, 0, 0, 42, 10, statisticsPointer, () => spi.signalNewStatisticsExist())
+  private val stats = new StatisticsWidget(this, 0, 0, 80, 20, statisticsPointer, () => spi.signalNewStatisticsExist())
 
   def showNewStats(): Unit = {
     stats.showNewStatistics()
@@ -36,6 +37,12 @@ class StatisticsWindow(app: TApplication, statisticsPointer: StatisticsPointer, 
     }
   }
 
+  override def onResize(resize: TResizeEvent): Unit = {
+    stats.setWidth(resize.getWidth)
+    stats.setHeight(resize.getHeight)
+    super.onResize(resize)
+    stats.onResize(resize)
+  }
 }
 
 trait StatisticsWindowSPI {

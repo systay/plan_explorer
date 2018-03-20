@@ -1,5 +1,6 @@
 package org.plan_explorer.tvision
 
+import jexer.event.TResizeEvent
 import jexer.{TCheckbox, TScrollableWidget, TWidget}
 import org.neo4j.cypher.internal.frontend.v3_3.LabelId
 import org.neo4j.cypher.internal.ir.v3_3.Cardinality
@@ -16,10 +17,13 @@ class StatisticsWidget(parent: TWidget,
                        onUpdatedStats: () => Unit)
   extends TScrollableWidget(parent, x, y, width, height) {
 
-  val DIVIDER = 40
-
   // State
-  private var fields = new collection.mutable.ArrayBuffer[StatisticValue]()
+  private val fields = new collection.mutable.ArrayBuffer[StatisticValue]()
+
+  override def onResize(event: TResizeEvent): Unit = {
+    super.onResize(event)
+    showNewStatistics()
+  }
 
   def showNewStatistics(): Unit = {
     this.getChildren.clear()
@@ -27,11 +31,12 @@ class StatisticsWidget(parent: TWidget,
     var row = 0
 
     def addField(name: String, startValue: Cardinality, updatedStats: Long => StoredStatistics): Unit = {
-      val pos: Int = Math.max(DIVIDER - name.length, 0)
+      val divider = DIVIDER
+      val pos: Int = Math.max(divider - name.length - 6, 0)
       val checkBox: TCheckbox = addCheckbox(pos, row, name, false)
       val field = new TNumberField(
         parent = this,
-        x = DIVIDER + 4,
+        x = divider,
         y = row,
         width = 10,
         fixed = false,
@@ -66,10 +71,12 @@ class StatisticsWidget(parent: TWidget,
     addButton("x0.5", 10, row, () => updateFieldsWith(_ / 2))
     addButton("x2", 20, row, () => updateFieldsWith(_ * 2))
     addButton("x10", 30, row, () => updateFieldsWith(_ * 10))
-
   }
 
-  private def updateFieldsWith(f: Long => Long) =
+  // Where
+  def DIVIDER = getWidth - 10
+
+  private def updateFieldsWith(f: Long => Long): Unit =
     for {
       field <- fields if field.isChecked
       currentValue <- field.currentValue
@@ -81,11 +88,10 @@ class StatisticsWidget(parent: TWidget,
   class StatisticValue(checkbox: TCheckbox, current: => Option[Long], newValue: Long => Unit) {
     def isChecked: Boolean = checkbox.isChecked
 
-    def currentValue = current
+    def currentValue: Option[Long] = current
 
-    def setNewValue(in: Long) = newValue(in)
+    def setNewValue(in: Long): Unit = newValue(in)
   }
-
 }
 
 // Field that only accepts numbers as input
