@@ -18,11 +18,9 @@ class MyApp
   private val queryW = new QueryWindow(this, this)
   private val planW = new ShowPlanWindow(this)
   private val statsW = new StatisticsWindow(this, statisticsPointer, this)
-  private var query: String = _
   private var baseState: LogicalPlanState = _
   private var possibleIndexes: Set[IndexPossibility] = _
   private var interestingStatistics: InterestingStats = _
-  //  new MainWindow(this)
 
   // Init
   onMenu(new TMenuEvent(TMenu.MID_TILE))
@@ -53,9 +51,18 @@ class MyApp
   private def createMenuItems() = {
     val fileMenu = addMenu("&Menu")
     fileMenu.addDefaultItem(TMenu.MID_TILE)
+    fileMenu.addItem(2000, "Smart layout")
     fileMenu.addDefaultItem(TMenu.MID_EXIT)
     fileMenu
   }
+
+  //  override def onMenu(menu: TMenuEvent): Boolean = {
+  //    if(menu.getId == 2000) {
+  //      val maxQuery = queryW.getQueryText().split("\n").map(_.length).max
+  //
+  //    }
+  //    super.onMenu(menu)
+  //  }
 }
 
 object Main {

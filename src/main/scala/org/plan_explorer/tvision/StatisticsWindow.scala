@@ -10,7 +10,7 @@ class StatisticsWindow(app: TApplication, statisticsPointer: StatisticsPointer, 
   // Widgets
   private val stats = new StatisticsWidget(this, 0, 0, 42, 10, statisticsPointer, () => spi.signalNewStatisticsExist())
 
-  def showNewStats() = {
+  def showNewStats(): Unit = {
     stats.showNewStatistics()
   }
 
