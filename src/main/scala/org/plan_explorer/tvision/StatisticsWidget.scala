@@ -19,6 +19,9 @@ class StatisticsWidget(parent: TWidget,
 
   // State
   private val fields = new collection.mutable.ArrayBuffer[StatisticValue]()
+  private var biggestStatisticsName = 0
+
+  def statisticsSize: Int = biggestStatisticsName + 6
 
   override def onResize(event: TResizeEvent): Unit = {
     super.onResize(event)
@@ -29,8 +32,10 @@ class StatisticsWidget(parent: TWidget,
     this.getChildren.clear()
     this.fields.clear()
     var row = 0
+    biggestStatisticsName = 0
 
     def addField(name: String, startValue: Cardinality, updatedStats: Long => StoredStatistics): Unit = {
+      biggestStatisticsName = Math.max(biggestStatisticsName, name.length)
       val divider = DIVIDER
       val pos: Int = Math.max(divider - name.length - 6, 0)
       val checkBox: TCheckbox = addCheckbox(pos, row, name, false)
