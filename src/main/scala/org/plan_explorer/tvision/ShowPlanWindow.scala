@@ -7,8 +7,8 @@ import org.plan_explorer.tvision.JexerScalaHelpers._
 
 import scala.collection.JavaConverters._
 
-class ShowPlanWindow(app: TApplication)
-  extends TWindow(app, "Show Plan", 80, 80, TWindow.NOCLOSEBOX | TWindow.RESIZABLE) with Resizeable {
+class ShowPlanWindow(app: TApplication with ViewCollector)
+  extends TWindow(app, "Show Plan", 80, 80, TWindow.RESIZABLE) with Resizeable with InformationConsumer {
 
   // Widgets
   private var queryPlanLabels = Seq.empty[TLabel]
@@ -26,5 +26,9 @@ class ShowPlanWindow(app: TApplication)
     this.setWidth(newWidth)
     this.setHeight(newHeight)
     onResize(new TResizeEvent(TResizeEvent.Type.WIDGET, newWidth, newHeight))
+  }
+
+  override def onClose(): Unit = {
+    app.viewClosed(this)
   }
 }

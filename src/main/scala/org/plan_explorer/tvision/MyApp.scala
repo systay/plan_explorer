@@ -3,28 +3,30 @@ package org.plan_explorer.tvision
 import jexer.TApplication.BackendType
 import jexer.event.TMenuEvent
 import jexer.menu.TMenu
-import jexer.{TAction, TApplication, TKeypress}
+import jexer.{TAction, TApplication, TKeypress, TWindow}
 import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
+import org.neo4j.cypher.internal.v3_3.logical.plans.LogicalPlan
 import org.plan_explorer.model._
+import org.plan_explorer.tvision.MyApp.MenuEvents._
+import org.plan_explorer.tvision.MyApp._
 
-class MyApp
-  extends TApplication(BackendType.SWING)
-    with QueryWindowSPI
-    with StatisticsWindowSPI {
-  val ENTER_QUERY = 2000
-
+class MyApp extends TApplication(BackendType.SWING)
+  with QueryWindowSPI
+  with StatisticsWindowSPI
+  with ViewCollector {
   // State
   private val statisticsPointer = new StatisticsPointer()
   private val queryW = new QueryWindow(this, this)
-  private val planW = new ShowPlanWindow(this)
   private val statsW = new StatisticsWindow(this, statisticsPointer, this)
+  private val viewWindows = new scala.collection.mutable.ArrayBuffer[TWindow with Resizeable]()
   private var baseState: LogicalPlanState = _
   private var possibleIndexes: Set[IndexPossibility] = _
-  private var interestingStatistics: InterestingStats = _
 
   // Init
   createMenuItems()
+  viewWindows.append(new ShowPlanWindow(this))
   queryHasBeenUpdated(queryW.getQueryText())
+  private var interestingStatistics: InterestingStats = _
 
   override def queryHasBeenUpdated(newQuery: String): Unit = {
     val (
@@ -42,17 +44,42 @@ class MyApp
 
   override def signalNewStatisticsExist(): Unit = {
     val newPlan = PlanSpaceProducer.plan(baseState, statisticsPointer.storedStatistics, statisticsPointer.tokens, Set.empty)
-    planW.setPlan(newPlan)
+
+    viewWindows.foreach {
+      case i: InformationConsumer => i.setPlan(newPlan)
+      case _ =>
+    }
   }
 
   override def currentQuery: String = queryW.getQueryText()
 
   override def onMenu(menu: TMenuEvent): Boolean = {
-    if (menu.getId == 2000) {
-      smartLayout()
-      return true
+    val pf: PartialFunction[Int, Unit] = {
+      case SMART_LAYOUT =>
+        smartLayout()
+      case LOGICALPLAN =>
+        showLogicalPlan()
     }
-    super.onMenu(menu)
+
+    if (pf.isDefinedAt(menu.getId)) {
+      pf(menu.getId)
+      true
+    } else
+
+      super.onMenu(menu)
+  }
+
+  private def showLogicalPlan(): Unit = {
+    val maybeWindow = viewWindows.find(_.isInstanceOf[ShowPlanWindow])
+    maybeWindow match {
+      case None =>
+        viewWindows.append(new ShowPlanWindow(this))
+        queryHasBeenUpdated(queryW.getQueryText())
+
+      case Some(view) =>
+        view.activate()
+    }
+
   }
 
   private def smartLayout(): Unit = {
@@ -73,12 +100,25 @@ class MyApp
     queryW.resizeTo(qAndStats, queryWindowHeight)
 
     statsW.setX(0)
-    statsW.setY(queryWindowHeight + 1)
-    statsW.resizeTo(qAndStats, desktopHeight - queryWindowHeight - 1)
+    statsW.setY(queryWindowHeight)
+    statsW.resizeTo(qAndStats, desktopHeight - queryWindowHeight)
 
-    planW.setX(qAndStats + 1)
-    planW.setY(1)
-    planW.resizeTo(desktopWidth - qAndStats - 1, desktopHeight - 1)
+    val viewHeight = desktopHeight / viewWindows.size - 1
+    val viewWidth = desktopWidth - qAndStats
+    viewWindows.zipWithIndex.foreach {
+      case (window, idx) =>
+        val top = viewHeight * idx + 1
+        window.setX(qAndStats)
+        window.setY(top)
+        window.resizeTo(viewWidth, viewHeight)
+    }
+  }
+
+  override def viewClosed(view: TWindow with Resizeable): Unit = {
+    println("closed view")
+    val idx = viewWindows.indexOf(view)
+    if (idx >= 0)
+      viewWindows.remove(idx)
   }
 
   private def createMenuItems() = {
@@ -90,14 +130,33 @@ class MyApp
       /*alt*/ false,
       /*ctrl*/ true,
       /*shift*/ false)
-    fileMenu.addItem(2000, "Smart layout", ctrlSpace)
+    fileMenu.addItem(MenuEvents.SMART_LAYOUT, "Smart layout", ctrlSpace)
     fileMenu.addDefaultItem(TMenu.MID_EXIT)
-    fileMenu
+
+    val viewMenu = addMenu("&View")
+    viewMenu.addItem(MenuEvents.LOGICALPLAN, "LogicalPlan.toString")
   }
+}
+
+object MyApp {
+
+  object MenuEvents {
+    val SMART_LAYOUT = 2000
+    val LOGICALPLAN = 2001
+  }
+
 }
 
 trait Resizeable {
   def resizeTo(newWidth: Int, newHeight: Int): Unit
+}
+
+trait InformationConsumer {
+  def setPlan(p: LogicalPlan): Unit
+}
+
+trait ViewCollector {
+  def viewClosed(view: TWindow with Resizeable): Unit
 }
 
 object Main {
