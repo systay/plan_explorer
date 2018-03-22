@@ -58,7 +58,9 @@ class MyApp extends TApplication(BackendType.SWING)
       case SMART_LAYOUT =>
         smartLayout()
       case LOGICALPLAN =>
-        showLogicalPlan()
+        showOrCreate(_.isInstanceOf[ShowPlanWindow], new ShowPlanWindow(this))
+      case SHOW_AST =>
+        showOrCreate(_.isInstanceOf[ShowPlanTreeWindow], new ShowPlanTreeWindow(this))
     }
 
     if (pf.isDefinedAt(menu.getId)) {
@@ -69,17 +71,16 @@ class MyApp extends TApplication(BackendType.SWING)
       super.onMenu(menu)
   }
 
-  private def showLogicalPlan(): Unit = {
-    val maybeWindow = viewWindows.find(_.isInstanceOf[ShowPlanWindow])
+  private def showOrCreate(tester: TWindow with Resizeable => Boolean, creator: => TWindow with Resizeable): Unit = {
+    val maybeWindow = viewWindows.find(tester)
     maybeWindow match {
       case None =>
-        viewWindows.append(new ShowPlanWindow(this))
+        viewWindows.append(creator)
         queryHasBeenUpdated(queryW.getQueryText())
 
       case Some(view) =>
         view.activate()
     }
-
   }
 
   private def smartLayout(): Unit = {
@@ -135,6 +136,7 @@ class MyApp extends TApplication(BackendType.SWING)
 
     val viewMenu = addMenu("&View")
     viewMenu.addItem(MenuEvents.LOGICALPLAN, "LogicalPlan.toString")
+    viewMenu.addItem(MenuEvents.SHOW_AST, "LogicalPlan Tree")
   }
 }
 
@@ -143,6 +145,7 @@ object MyApp {
   object MenuEvents {
     val SMART_LAYOUT = 2000
     val LOGICALPLAN = 2001
+    val SHOW_AST = 2002
   }
 
 }
