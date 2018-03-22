@@ -5,7 +5,6 @@ import jexer.event.TMenuEvent
 import jexer.menu.TMenu
 import jexer.{TAction, TApplication, TKeypress, TWindow}
 import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
-import org.neo4j.cypher.internal.v3_3.logical.plans.LogicalPlan
 import org.plan_explorer.model._
 import org.plan_explorer.tvision.MyApp.MenuEvents._
 import org.plan_explorer.tvision.MyApp._
@@ -21,12 +20,12 @@ class MyApp extends TApplication(BackendType.SWING)
   private val viewWindows = new scala.collection.mutable.ArrayBuffer[TWindow with Resizeable]()
   private var baseState: LogicalPlanState = _
   private var possibleIndexes: Set[IndexPossibility] = _
+  private var interestingStatistics: InterestingStats = _
 
   // Init
   createMenuItems()
   viewWindows.append(new ShowPlanWindow(this))
   queryHasBeenUpdated(queryW.getQueryText())
-  private var interestingStatistics: InterestingStats = _
 
   override def queryHasBeenUpdated(newQuery: String): Unit = {
     val (
@@ -46,7 +45,7 @@ class MyApp extends TApplication(BackendType.SWING)
     val newPlan = PlanSpaceProducer.plan(baseState, statisticsPointer.storedStatistics, statisticsPointer.tokens, Set.empty)
 
     viewWindows.foreach {
-      case i: InformationConsumer => i.setPlan(newPlan)
+      case i: InformationConsumer => i.setData(newPlan)
       case _ =>
     }
   }
@@ -155,7 +154,7 @@ trait Resizeable {
 }
 
 trait InformationConsumer {
-  def setPlan(p: LogicalPlan): Unit
+  def setData(p: LogicalPlanState): Unit
 }
 
 trait ViewCollector {

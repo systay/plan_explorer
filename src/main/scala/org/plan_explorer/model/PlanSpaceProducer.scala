@@ -5,6 +5,7 @@ import java.time.Clock
 import org.neo4j.cypher.internal.compatibility.v3_3.WrappedMonitors
 import org.neo4j.cypher.internal.compatibility.v3_3.runtime.CommunityRuntimeContextCreator
 import org.neo4j.cypher.internal.compatibility.v3_3.runtime.helpers.simpleExpressionEvaluator
+import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
 import org.neo4j.cypher.internal.compiler.v3_3.planner.logical.SimpleMetricsFactory
 import org.neo4j.cypher.internal.compiler.v3_3.planner.logical.idp._
 import org.neo4j.cypher.internal.compiler.v3_3.spi.{GraphStatistics, PlanContext}
@@ -40,14 +41,14 @@ object PlanSpaceProducer {
             val nodeCount = allNodes.evaluate(x, y)
             val stats = StoredStatistics(labelStats, nodeCount, edgeStats)
 
-            results(xStep)(yStep) = plan(baseState, stats, tokens, indexes)
+            results(xStep)(yStep) = plan(baseState, stats, tokens, indexes).logicalPlan
         }
     }
 
     results
   }
 
-  def plan(baseState: BaseState, stats: GraphStatistics, tokens: Tokens, indexes: Set[IndexUse]): LogicalPlan = {
+  def plan(baseState: BaseState, stats: GraphStatistics, tokens: Tokens, indexes: Set[IndexUse]): LogicalPlanState = {
 
     val config = ParseAndSemanticAnalysis.config
     val monitors = WrappedMonitors(new Monitors)
@@ -77,14 +78,13 @@ object PlanSpaceProducer {
 
     val compiler = ParseAndSemanticAnalysis.createCompiler()
     val result = compiler.normalizeQuery(baseState, context)
-    val planState = compiler.planPreparedQuery(result, context)
-    planState.logicalPlan
+    compiler.planPreparedQuery(result, context)
   }
 
   class MyPlanContext(stats: GraphStatistics, tokens: Tokens, indexes: Set[IndexUse]) extends PlanContext {
-    override def indexesGetForLabel(labelId: Int): Iterator[IndexDescriptor] = apa(labelId, false)
+    override def indexesGetForLabel(labelId: Int): Iterator[IndexDescriptor] = getIndexDescriptors(labelId, false)
 
-    private def apa(labelId: Int, wantedUnique: Boolean) = (indexes collect {
+    private def getIndexDescriptors(labelId: Int, wantedUnique: Boolean) = (indexes collect {
       case IndexUse(l, props, unique) if unique == wantedUnique && l.id == labelId =>
         IndexDescriptor(LabelId(labelId), props)
     }).iterator
@@ -105,7 +105,7 @@ object PlanSpaceProducer {
 
     override def indexExistsForLabel(labelName: String): Boolean = ???
 
-    override def uniqueIndexesGetForLabel(labelId: Int): Iterator[IndexDescriptor] = apa(labelId, wantedUnique = true)
+    override def uniqueIndexesGetForLabel(labelId: Int): Iterator[IndexDescriptor] = getIndexDescriptors(labelId, wantedUnique = true)
 
 
     override def hasPropertyExistenceConstraint(labelName: String, propertyKey: String): Boolean = ???

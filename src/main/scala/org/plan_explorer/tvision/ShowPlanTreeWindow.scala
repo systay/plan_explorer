@@ -2,6 +2,7 @@ package org.plan_explorer.tvision
 
 import jexer._
 import jexer.event.TResizeEvent
+import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
 import org.neo4j.cypher.internal.v3_3.logical.plans.LogicalPlan
 import org.plan_explorer.tvision.JexerScalaHelpers._
 
@@ -11,9 +12,8 @@ class ShowPlanTreeWindow(app: TApplication with ViewCollector)
   // Widgets
   private var queryTree = new TTreeView(this, 0, 0, 80, 80)
 
-
-  def setPlan(plan: LogicalPlan): Unit = {
-
+  override def setData(p: LogicalPlanState): Unit = {
+    val plan = p.logicalPlan
     def planName(p: LogicalPlan): String = {
       s"${p.getClass.getSimpleName}(${p.availableSymbols.mkString(",")})"
     }

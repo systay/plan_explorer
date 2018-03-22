@@ -2,7 +2,7 @@ package org.plan_explorer.tvision
 
 import jexer._
 import jexer.event.TResizeEvent
-import org.neo4j.cypher.internal.v3_3.logical.plans.LogicalPlan
+import org.neo4j.cypher.internal.compiler.v3_3.phases.LogicalPlanState
 import org.plan_explorer.tvision.JexerScalaHelpers._
 
 import scala.collection.JavaConverters._
@@ -13,9 +13,10 @@ class ShowPlanWindow(app: TApplication with ViewCollector)
   // Widgets
   private var queryPlanLabels = Seq.empty[TLabel]
 
-  def setPlan(p: LogicalPlan): Unit = {
+  override def setData(p: LogicalPlanState): Unit = {
+    val plan = p.logicalPlan
     this.getChildren.removeAll(queryPlanLabels.asJava)
-    val lines = p.toString().split(System.lineSeparator())
+    val lines = plan.toString().split(System.lineSeparator())
     queryPlanLabels = lines.zipWithIndex.map {
       case (line, row) =>
         addLabel(line, 0, 2 + row)
